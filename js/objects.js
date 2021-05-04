@@ -1,126 +1,123 @@
 "use strict";
 
-const JSON_URL = "data/objects.json";
+class ObjectsPage extends ListPage {
+	constructor () {
+		const pageFilter = new PageFilterObjects();
+		super({
+			dataSource: "data/objects.json",
 
-window.onload = function load () {
-	ExcludeUtil.initialise();
-	DataUtil.loadJSON(JSON_URL).then(onJsonLoad);
-};
+			pageFilter,
 
-let list;
-function onJsonLoad (data) {
-	list = ListUtil.search({
-		valueNames: ["name", "size", "source"],
-		listClass: "objects",
-		sortFunction: SortUtil.listSort
-	});
+			listClass: "objects",
 
-	EntryRenderer.hover.bindPopoutButton(objectsList);
+			sublistClass: "subobjects",
 
-	const subList = ListUtil.initSublist({
-		valueNames: ["name", "size", "id"],
-		listClass: "subobjects",
-		itemList: objectsList,
-		getSublistRow: getSublistItem,
-		primaryLists: [list]
-	});
-	ListUtil.initGenericPinnable();
-
-	addObjects(data);
-	BrewUtil.addBrewData(addObjects);
-	BrewUtil.makeBrewButton("manage-brew");
-	BrewUtil.bind({list});
-	ListUtil.loadState();
-
-	History.init();
-}
-
-let objectsList = [];
-let obI = 0;
-function addObjects (data) {
-	if (!data.object || !data.object.length) return;
-
-	objectsList = objectsList.concat(data.object);
-
-	let tempString = "";
-	for (; obI < objectsList.length; obI++) {
-		const obj = objectsList[obI];
-		if (ExcludeUtil.isExcluded(obj.name, "object", obj.source)) continue;
-		const abvSource = Parser.sourceJsonToAbv(obj.source);
-
-		tempString += `
-			<li class="row" ${FLTR_ID}="${obI}" onclick="ListUtil.toggleSelected(event, this)" oncontextmenu="ListUtil.openContextMenu(event, this)">
-				<a id="${obI}" href="#${UrlUtil.autoEncodeHash(obj)}" title="${obj.name}">
-					<span class="name col-xs-8">${obj.name}</span>
-					<span class="size col-xs-2">${Parser.sizeAbvToFull(obj.size)}</span>
-					<span class="source col-xs-2 source${abvSource}" title="${Parser.sourceJsonToFull(obj.source)}">${abvSource}</span>
-				</a>
-			</li>
-		`;
+			dataProps: ["object"],
+		});
 	}
-	const lastSearch = ListUtil.getSearchTermAndReset(list);
-	$(`#objectsList`).append(tempString);
 
-	list.reIndex();
-	if (lastSearch) list.search(lastSearch);
-	list.sort("name");
+	getListItem (obj, obI, isExcluded) {
+		this._pageFilter.mutateAndAddToFilters(obj, isExcluded);
 
-	ListUtil.setOptions({
-		itemList: objectsList,
-		getSublistRow: getSublistItem,
-		primaryLists: [list]
-	});
-	ListUtil.bindPinButton();
-	EntryRenderer.hover.bindPopoutButton(objectsList);
-}
+		const eleLi = document.createElement("div");
+		eleLi.className = `lst__row flex-col ${isExcluded ? "lst__row--blacklisted" : ""}`;
 
-function getSublistItem (obj, pinId) {
-	return `
-		<li class="row" ${FLTR_ID}="${pinId}" oncontextmenu="ListUtil.openSubContextMenu(event, this)">
-			<a href="#${UrlUtil.autoEncodeHash(obj)}" title="${obj.name}">
-				<span class="name col-xs-9">${obj.name}</span>		
-				<span class="ability col-xs-3">${Parser.sizeAbvToFull(obj.size)}</span>		
-				<span class="id hidden">${pinId}</span>				
+		const source = Parser.sourceJsonToAbv(obj.source);
+		const hash = UrlUtil.autoEncodeHash(obj);
+		const size = Parser.sizeAbvToFull(obj.size);
+
+		eleLi.innerHTML = `<a href="#${hash}" class="lst--border lst__row-inner">
+			<span class="bold col-8 pl-0">${obj.name}</span>
+			<span class="col-2 text-center">${size}</span>
+			<span class="col-2 text-center ${Parser.sourceJsonToColor(obj.source)} pr-0" title="${Parser.sourceJsonToFull(obj.source)}" ${BrewUtil.sourceJsonToStyle(obj.source)}>${source}</span>
+		</a>`;
+
+		const listItem = new ListItem(
+			obI,
+			eleLi,
+			obj.name,
+			{
+				hash,
+				source,
+				size,
+			},
+			{
+				uniqueId: obj.uniqueId ? obj.uniqueId : obI,
+				isExcluded,
+			},
+		);
+
+		eleLi.addEventListener("click", (evt) => this._list.doSelect(listItem, evt));
+		eleLi.addEventListener("contextmenu", (evt) => ListUtil.openContextMenu(evt, this._list, listItem));
+
+		return listItem;
+	}
+
+	handleFilterChange () {
+		const f = this._filterBox.getValues();
+		this._list.filter(item => this._pageFilter.toDisplay(f, this._dataList[item.ix]));
+		FilterBox.selectFirstVisible(this._dataList);
+	}
+
+	getSublistItem (obj, pinId) {
+		const hash = UrlUtil.autoEncodeHash(obj);
+		const size = Parser.sizeAbvToFull(obj.size);
+
+		const $ele = $(`<div class="lst__row lst__row--sublist flex-col">
+			<a href="#${hash}" class="lst--border lst__row-inner">
+				<span class="bold col-9 pl-0">${obj.name}</span>
+				<span class="col-3 pr-0 text-center">${size}</span>
 			</a>
-		</li>
-	`;
+		</div>`)
+			.contextmenu(evt => ListUtil.openSubContextMenu(evt, listItem))
+			.click(evt => ListUtil.sublist.doSelect(listItem, evt));
+
+		const listItem = new ListItem(
+			pinId,
+			$ele,
+			obj.name,
+			{
+				hash,
+				size,
+			},
+		);
+		return listItem;
+	}
+
+	doLoadHash (id) {
+		const obj = this._dataList[id];
+
+		const renderStack = [];
+
+		if (obj.entries) this._renderer.recursiveRender({entries: obj.entries}, renderStack, {depth: 2});
+		if (obj.actionEntries) this._renderer.recursiveRender({entries: obj.actionEntries}, renderStack, {depth: 2});
+
+		$(`#pagecontent`).empty().append(RenderObjects.$getRenderedObject(obj));
+
+		const $floatToken = $(`#float-token`).empty();
+
+		const hasToken = obj.tokenUrl || obj.hasToken;
+		if (hasToken) {
+			const imgLink = obj.tokenUrl || UrlUtil.link(`${Renderer.get().baseMediaUrls["img"] || Renderer.get().baseUrl}img/objects/${obj.name.replace(/"/g, "")}.png`);
+			$floatToken.append(`<a href="${imgLink}" target="_blank" rel="noopener noreferrer"><img src="${imgLink}" id="token_image" class="token" alt="${obj.name}"></a>`);
+		}
+
+		ListUtil.updateSelected();
+	}
+
+	async pDoLoadSubHash (sub) {
+		sub = this._filterBox.setFromSubHashes(sub);
+		await ListUtil.pSetFromSubHashes(sub);
+	}
+
+	_getSearchCache (entity) {
+		if (!entity.entries && !entity.actionEntries) return "";
+		const ptrOut = {_: ""};
+		this._getSearchCache_handleEntryProp(entity, "entries", ptrOut);
+		this._getSearchCache_handleEntryProp(entity, "actionEntries", ptrOut);
+		return ptrOut._;
+	}
 }
 
-const renderer = EntryRenderer.getDefaultRenderer();
-function loadhash (jsonIndex) {
-	renderer.setFirstSection(true);
-
-	const obj = objectsList[jsonIndex];
-
-	const renderStack = [];
-
-	if (obj.entries) renderer.recursiveEntryRender({entries: obj.entries}, renderStack, 2);
-	if (obj.actionEntries) renderer.recursiveEntryRender({entries: obj.actionEntries}, renderStack, 2);
-
-	const $content = $(`#pagecontent`).empty();
-	$content.append(`
-		${EntryRenderer.utils.getBorderTr()}
-		${EntryRenderer.utils.getNameTr(obj)}
-		<tr class="text"><td colspan="6"><i>${obj.type !== "generic" ? `${Parser.sizeAbvToFull(obj.size)} object` : `Variable size object`}</i><br></td></tr>
-		<tr class="text"><td colspan="6">
-			<b>Armor Class:</b> ${obj.ac}<br>
-			<b>Hit Points:</b> ${obj.hp}<br>
-			<b>Damage Immunities:</b> ${obj.immune}<br>
-		</td></tr>
-		<tr class="text"><td colspan="6">${renderStack.join("")}</td></tr>
-		${EntryRenderer.utils.getPageTr(obj)}
-		${EntryRenderer.utils.getBorderTr()}
-	`);
-
-	const imgLink = obj.tokenURL || UrlUtil.link(`img/objects/${obj.name.replace(/"/g, "")}.png`);
-	$("th.name").append(`
-		<a href="${imgLink}" target="_blank">
-			<img src="${imgLink}" class="token" onerror="imgError(this)">
-		</a>`
-	);
-}
-
-function imgError (x) {
-	$(x).closest("th").find(`span.stats-source`).css("margin-right", "0");
-	$(x).remove();
-}
+const objectsPage = new ObjectsPage();
+window.addEventListener("load", () => objectsPage.pOnLoad());

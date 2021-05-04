@@ -1,32 +1,32 @@
-const fs = require('fs');
+const fs = require("fs");
 const utB = require("./util-book-reference");
 
 const index = utB.UtilBookReference.getIndex(
 	{
 		name: "Quick Reference",
 		id: "bookref-quick",
-		tag: "quickref"
+		tag: "quickref",
 	},
 	{
 		name: "DM Reference",
 		id: "bookref-dmscreen",
-		tag: "dmref"
-	}
+		tag: "dmref",
+	},
 );
 
-fs.writeFileSync("data/bookref-dmscreen.json", JSON.stringify(index).replace(/\s+\u2014\s+?/g, "\\u2014"), "utf8");
+fs.writeFileSync("data/generated/bookref-dmscreen.json", JSON.stringify(index).replace(/\s+\u2014\s+?/g, "\\u2014"), "utf8");
 
-function flattenReferenceIndex (ref) {
+function flattenReferenceIndex (ref, skipHeaders) {
 	const outMeta = {
 		name: {},
 		id: {},
-		section: {}
+		section: {},
 	};
 
 	const meta = {
 		name: {},
 		id: {},
-		section: {}
+		section: {},
 	};
 
 	const out = [];
@@ -54,13 +54,14 @@ function flattenReferenceIndex (ref) {
 				meta.section[c.name] = sectionId++;
 			}
 
-			c.headers.forEach(h => {
+			if (skipHeaders) return;
+			(c.headers || []).forEach(h => {
 				out.push({
 					id: indexId++,
 					b: meta.id[book.id], // book
 					s: meta.section[c.name], // section name
 					p: i, // section index
-					h // header name
+					h, // header name
 				})
 			});
 		});
@@ -68,9 +69,9 @@ function flattenReferenceIndex (ref) {
 
 	return {
 		_meta: outMeta,
-		data: out
+		data: out,
 	};
 }
 
-fs.writeFileSync("data/bookref-dmscreen-index.json", JSON.stringify(flattenReferenceIndex(index.reference)), "utf8");
-console.log("Updated book references.");
+fs.writeFileSync("data/generated/bookref-dmscreen-index.json", JSON.stringify(flattenReferenceIndex(index.reference)), "utf8");
+console.log("Updated DM Screen references.");

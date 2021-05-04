@@ -1,6 +1,7 @@
 {
-	"$schema": "http://json-schema.org/draft-06/schema#",
-	"version": "1.0.0",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$id": "books.json",
+	"version": "1.2.0",
 	"type": "object",
 	"properties": {
 		"book": {
@@ -14,6 +15,18 @@
 					"id": {
 						"type": "string"
 					},
+					"source": {
+						"type": "string"
+					},
+					"author": {
+						"type": "string"
+					},
+					"published": {
+						"type": "string"
+					},
+					"coverUrl": {
+						"type": "string"
+					},
 					"contents": {
 						"type": "array",
 						"items": {
@@ -25,7 +38,29 @@
 								"headers": {
 									"type": "array",
 									"items": {
-										"type": "string"
+										"oneOf": [
+											{
+												"type": "string"
+											},
+											{
+												"type": "object",
+												"properties": {
+													"depth": {
+														"type": "integer"
+													},
+													"header": {
+														"type": "string"
+													},
+													"index": {
+														"description": "The relative index of this header in the current chapter, i.e. if \"Treasure\" appears twice and you wish the contents entry to link to the second instance, set the \"index\" to 1.",
+														"type": "integer"
+													}
+												},
+												"required": [
+													"header"
+												]
+											}
+										]
 									}
 								},
 								"ordinal": {
@@ -33,7 +68,7 @@
 									"properties": {
 										"type": {
 											"type": "string",
-											"enum": ["chapter", "appendix", "part", "episode"]
+											"enum": ["chapter", "appendix", "part", "episode", "level"]
 										},
 										"identifier": {
 											"type": ["integer", "string"]
@@ -57,7 +92,9 @@
 				"required": [
 					"name",
 					"id",
-					"contents"
+					"source",
+					"contents",
+					"published"
 				]
 			}
 		}

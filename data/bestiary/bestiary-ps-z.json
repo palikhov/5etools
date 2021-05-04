@@ -1,9 +1,9 @@
 {
 	"monster": [
 		{
+			"name": "Archon Of Redemption",
 			"source": "PSZ",
 			"page": 22,
-			"name": "Archon Of Redemption",
 			"size": "L",
 			"type": "celestial",
 			"alignment": [
@@ -20,7 +20,7 @@
 			],
 			"hp": {
 				"average": 136,
-				"formula": "16d8+64"
+				"formula": "16d8 + 64"
 			},
 			"speed": {
 				"walk": 30,
@@ -40,6 +40,10 @@
 				"insight": "+9",
 				"perception": "+9"
 			},
+			"senses": [
+				"darkvision 120 ft."
+			],
+			"passive": 19,
 			"resist": [
 				"radiant",
 				{
@@ -48,7 +52,8 @@
 						"piercing",
 						"slashing"
 					],
-					"note": "from"
+					"note": "from nonmagical attacks",
+					"cond": true
 				}
 			],
 			"conditionImmune": [
@@ -56,15 +61,16 @@
 				"exhaustion",
 				"frightened"
 			],
-			"senses": "darkvision 120 ft.",
-			"passive": 19,
-			"languages": "all, telepathy 120 ft.",
+			"languages": [
+				"all",
+				"telepathy 120 ft."
+			],
 			"cr": "10",
 			"spellcasting": [
 				{
 					"name": "Innate Spellcasting",
 					"headerEntries": [
-						"The archon's innate spellcasting ability is Charisma (spell save DC 17). The archon can innately cast the following spells, requiring only verbal components:"
+						"The archon's innate spellcasting ability is Charisma (spell save {@dc 17}). The archon can innately cast the following spells, requiring only verbal components:"
 					],
 					"will": [
 						"{@spell detect evil and good}"
@@ -74,7 +80,8 @@
 							"{@spell destructive wave}",
 							"{@spell geas}"
 						]
-					}
+					},
+					"ability": "cha"
 				}
 			],
 			"trait": [
@@ -113,21 +120,47 @@
 				{
 					"name": "Sword",
 					"entries": [
-						"Melee Weapon Attack: {@hit 8} to hit, reach 5 ft., one target. Hit: 8 ({@dice 1d8+4}) slashing damage plus 13 ({@dice 3d8}) radiant damage."
+						"{@atk mw} {@hit 8} to hit, reach 5 ft., one target. {@h}8 ({@damage 1d8 + 4}) slashing damage plus 13 ({@damage 3d8}) radiant damage."
 					]
 				},
 				{
 					"name": "Claws",
 					"entries": [
-						"Melee Weapon Attack: {@hit 8} to hit, reach 10 ft., one target. Hit: 11 ({@dice 2d6+4}) piercing damage plus 13 ({@dice 3d8}) radiant damage."
+						"{@atk mw} {@hit 8} to hit, reach 10 ft., one target. {@h}11 ({@damage 2d6 + 4}) piercing damage plus 13 ({@damage 3d8}) radiant damage."
 					]
 				}
+			],
+			"hasToken": true,
+			"traitTags": [
+				"Magic Resistance"
+			],
+			"senseTags": [
+				"SD"
+			],
+			"actionTags": [
+				"Multiattack"
+			],
+			"languageTags": [
+				"TP",
+				"XX"
+			],
+			"damageTags": [
+				"P",
+				"R",
+				"S"
+			],
+			"spellcastingTags": [
+				"I"
+			],
+			"miscTags": [
+				"MW",
+				"RCH"
 			]
 		},
 		{
+			"name": "Felidar",
 			"source": "PSZ",
 			"page": 23,
-			"name": "Felidar",
 			"size": "L",
 			"type": "celestial",
 			"alignment": [
@@ -139,7 +172,7 @@
 			],
 			"hp": {
 				"average": 67,
-				"formula": "9d10+18"
+				"formula": "9d10 + 18"
 			},
 			"speed": {
 				"walk": 50
@@ -150,6 +183,10 @@
 			"int": 11,
 			"wis": 17,
 			"cha": 16,
+			"senses": [
+				"darkvision 60 ft."
+			],
+			"passive": 13,
 			"immune": [
 				"poison"
 			],
@@ -158,15 +195,16 @@
 				"paralyzed",
 				"poisoned"
 			],
-			"senses": "darkvision 60 ft.",
-			"passive": 13,
-			"languages": "Celestial, telepathy 60 ft.",
+			"languages": [
+				"Celestial",
+				"telepathy 60 ft."
+			],
 			"cr": "5",
 			"spellcasting": [
 				{
 					"name": "Innate Spellcasting",
 					"headerEntries": [
-						"The felidar's innate spellcasting ability is Charisma (spell save DC 14). The felidar can innately cast the following spells, requiring no components:"
+						"The felidar's innate spellcasting ability is Charisma (spell save {@dc 14}). The felidar can innately cast the following spells, requiring no components:"
 					],
 					"will": [
 						"{@spell detect evil and good}",
@@ -179,14 +217,15 @@
 							"{@spell daylight}",
 							"{@spell dispel evil and good}"
 						]
-					}
+					},
+					"ability": "cha"
 				}
 			],
 			"trait": [
 				{
 					"name": "Pounce",
 					"entries": [
-						"If the felidar moves at least 20 feet straight toward a creature and then hits it with a claws attack on the same turn, the target must succeed on a DC 15 Strength saving throw or be knocked prone. If the target is prone, the felidar can make one bite attack against it as a bonus action."
+						"If the felidar moves at least 20 feet straight toward a creature and then hits it with a claws attack on the same turn, the target must succeed on a {@dc 15} Strength saving throw or be knocked {@condition prone}. If the target is {@condition prone}, the felidar can make one bite attack against it as a bonus action."
 					]
 				},
 				{
@@ -212,19 +251,19 @@
 				{
 					"name": "Claws",
 					"entries": [
-						"Melee Weapon Attack: {@hit 7} to hit, reach 5 ft., one target. Hit: 11 ({@dice 2d6+4}) slashing damage."
+						"{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}11 ({@damage 2d6 + 4}) slashing damage."
 					]
 				},
 				{
 					"name": "Bite",
 					"entries": [
-						"Melee Weapon Attack: {@hit 7} to hit, reach 5 ft., one target. Hit: 8 ({@dice 1d8+4}) piercing damage."
+						"{@atk mw} {@hit 7} to hit, reach 5 ft., one target. {@h}8 ({@damage 1d8 + 4}) piercing damage."
 					]
 				},
 				{
 					"name": "Healing Touch (3/Day)",
 					"entries": [
-						"The felidar touches another creature with its horns. The target magically regains 11 ({@dice 2d8+2}) hit points. In addition, the touch removes all diseases and neutralizes all poisons afflicting the target"
+						"The felidar touches another creature with its horns. The target magically regains 11 ({@dice 2d8 + 2}) hit points. In addition, the touch removes all diseases and neutralizes all poisons afflicting the target"
 					]
 				},
 				{
@@ -250,15 +289,42 @@
 				{
 					"name": "Heal Self (Costs 3 Actions)",
 					"entries": [
-						"The felidar magically regains 11 ({@dice 2d8+2}) hit points."
+						"The felidar magically regains 11 ({@dice 2d8 + 2}) hit points."
 					]
 				}
+			],
+			"hasToken": true,
+			"traitTags": [
+				"Magic Resistance",
+				"Magic Weapons",
+				"Pounce"
+			],
+			"senseTags": [
+				"D"
+			],
+			"actionTags": [
+				"Multiattack",
+				"Teleport"
+			],
+			"languageTags": [
+				"CE",
+				"TP"
+			],
+			"damageTags": [
+				"P",
+				"S"
+			],
+			"spellcastingTags": [
+				"I"
+			],
+			"miscTags": [
+				"MW"
 			]
 		},
 		{
+			"name": "Kraken",
 			"source": "PSZ",
 			"page": 25,
-			"name": "Kraken",
 			"size": "H",
 			"type": "monstrosity",
 			"alignment": [
@@ -275,7 +341,7 @@
 			],
 			"hp": {
 				"average": 230,
-				"formula": "20d12+100"
+				"formula": "20d12 + 100"
 			},
 			"speed": {
 				"walk": 30,
@@ -291,6 +357,10 @@
 				"athletics": "+14",
 				"perception": "+9"
 			},
+			"senses": [
+				"darkvision 120 ft."
+			],
+			"passive": 19,
 			"resist": [
 				"cold"
 			],
@@ -298,22 +368,23 @@
 				"lightning",
 				"thunder"
 			],
-			"senses": "darkvision 120 ft.",
-			"passive": 19,
-			"languages": "Common",
+			"languages": [
+				"Common"
+			],
 			"cr": "13",
 			"spellcasting": [
 				{
 					"name": "Innate Spellcasting",
 					"headerEntries": [
-						"The kraken's innate spellcasting ability is Charisma (spell save DC 17). The kraken can innately cast the following spells, requiring no components:"
+						"The kraken's innate spellcasting ability is Charisma (spell save {@dc 17}). The kraken can innately cast the following spells, requiring no components:"
 					],
 					"daily": {
 						"3e": [
 							"{@spell control weather}",
 							"{@spell water breathing}"
 						]
-					}
+					},
+					"ability": "cha"
 				}
 			],
 			"trait": [
@@ -334,23 +405,52 @@
 				{
 					"name": "Claw",
 					"entries": [
-						"Melee Weapon Attack: {@hit 14} to hit, reach 10 ft., one target. Hit: 30 ({@dice 6d6+9}) slashing damage."
+						"{@atk mw} {@hit 14} to hit, reach 10 ft., one target. {@h}30 ({@damage 6d6 + 9}) slashing damage."
 					]
 				},
 				{
 					"name": "Tentacles",
 					"entries": [
-						"Melee Weapon Attack: {@hit 14} to hit, reach 20 ft., one target. Hit: 30 ({@dice 6d6+9}) bludgeoning damage, and the target is grappled (escape DC 17). Until this grapple ends, the target is restrained."
+						"{@atk mw} {@hit 14} to hit, reach 20 ft., one target. {@h}30 ({@damage 6d6 + 9}) bludgeoning damage, and the target is {@condition grappled} (escape {@dc 17}). Until this grapple ends, the target is {@condition restrained}."
 					]
 				},
 				{
-					"name": "Lightning Strike (Recharge 5—6)",
+					"name": "Lightning Strike {@recharge 5}",
 					"entries": [
-						"The kraken hurls a magical lightning bolt at a point it can see within 500 feet of it. Each creature within 10 feet of that point must make a DC 17 Dexterity saving throw, taking 54 ({@dice 12d8}) lightning damage on a failed save, or half as much damage on a successful one."
+						"The kraken hurls a magical lightning bolt at a point it can see within 500 feet of it. Each creature within 10 feet of that point must make a {@dc 17} Dexterity saving throw, taking 54 ({@damage 12d8}) lightning damage on a failed save, or half as much damage on a successful one."
 					]
 				}
 			],
-			"soundClip": "https://media-waterdeep.cursecdn.com/file-attachments/0/304/kraken.mp3"
+			"hasToken": true,
+			"soundClip": {
+				"type": "internal",
+				"path": "bestiary/kraken.mp3"
+			},
+			"traitTags": [
+				"Amphibious"
+			],
+			"senseTags": [
+				"SD"
+			],
+			"actionTags": [
+				"Multiattack",
+				"Tentacles"
+			],
+			"languageTags": [
+				"C"
+			],
+			"damageTags": [
+				"B",
+				"L",
+				"S"
+			],
+			"spellcastingTags": [
+				"I"
+			],
+			"miscTags": [
+				"MW",
+				"RCH"
+			]
 		}
 	]
 }

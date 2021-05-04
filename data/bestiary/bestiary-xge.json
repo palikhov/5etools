@@ -1,8 +1,9 @@
 {
 	"monster": [
 		{
-			"source": "XGE",
 			"name": "Tiny Servant",
+			"source": "XGE",
+			"page": 169,
 			"size": "T",
 			"type": "construct",
 			"alignment": [
@@ -30,8 +31,10 @@
 			"int": 2,
 			"wis": 10,
 			"cha": 1,
+			"senses": [
+				"blindsight 60 ft. (blind beyond this radius)"
+			],
 			"passive": 10,
-			"cr": "Unknown",
 			"immune": [
 				"poison",
 				"psychic"
@@ -46,16 +49,24 @@
 				"petrified",
 				"poisoned"
 			],
-			"senses": "blindsight 60 ft. (blind beyond this radius)",
 			"action": [
 				{
 					"name": "Slam",
 					"entries": [
-						"Melee Weapon Attack: {@hit 5} to hit, reach 5 ft., one target. Hit: 5 ({@dice 1d4+3}) bludgeoning damage."
+						"{@atk mw} {@hit 5} to hit, reach 5 ft., one target. {@h}5 ({@damage 1d4 + 3}) bludgeoning damage."
 					]
 				}
 			],
-			"page": 169
+			"hasToken": true,
+			"senseTags": [
+				"B"
+			],
+			"damageTags": [
+				"B"
+			],
+			"miscTags": [
+				"MW"
+			]
 		}
 	]
 }

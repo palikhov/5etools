@@ -1,303 +1,10 @@
 {
-	"$schema": "http://json-schema.org/draft-06/schema#",
-	"version": "1.4.0",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"version": "1.16.5",
 	"title": "Bestiary Schema",
-	"id": "/Bestiary",
+	"$id": "bestiary.json",
 	"type": "object",
 	"definitions": {
-		"level1to9": {
-			"type": "object",
-			"properties": {
-				"lower": {
-					"type": "number"
-				},
-				"slots": {
-					"type": "number"
-				},
-				"spells": {
-					"type": "array",
-					"uniqueItems": true,
-					"items": {
-						"type": "string"
-					}
-				}
-			},
-			"required": [
-				"spells"
-			],
-			"additionalProperties": false
-		},
-		"arrayOfString": {
-			"type": "array",
-			"uniqueItems": true,
-			"items": {
-				"type": "string"
-			}
-		},
-		"frequency": {
-			"type": "object",
-			"properties": {
-				"9e": {
-					"$ref": "#/definitions/arrayOfString"
-				},
-				"9": {
-					"$ref": "#/definitions/arrayOfString"
-				},
-				"8e": {
-					"$ref": "#/definitions/arrayOfString"
-				},
-				"8": {
-					"$ref": "#/definitions/arrayOfString"
-				},
-				"7e": {
-					"$ref": "#/definitions/arrayOfString"
-				},
-				"7": {
-					"$ref": "#/definitions/arrayOfString"
-				},
-				"6e": {
-					"$ref": "#/definitions/arrayOfString"
-				},
-				"6": {
-					"$ref": "#/definitions/arrayOfString"
-				},
-				"5e": {
-					"$ref": "#/definitions/arrayOfString"
-				},
-				"5": {
-					"$ref": "#/definitions/arrayOfString"
-				},
-				"4e": {
-					"$ref": "#/definitions/arrayOfString"
-				},
-				"4": {
-					"$ref": "#/definitions/arrayOfString"
-				},
-				"3e": {
-					"$ref": "#/definitions/arrayOfString"
-				},
-				"3": {
-					"$ref": "#/definitions/arrayOfString"
-				},
-				"2e": {
-					"$ref": "#/definitions/arrayOfString"
-				},
-				"2": {
-					"$ref": "#/definitions/arrayOfString"
-				},
-				"1e": {
-					"$ref": "#/definitions/arrayOfString"
-				},
-				"1": {
-					"$ref": "#/definitions/arrayOfString"
-				}
-			},
-			"additionalProperties": false
-		},
-		"speedVal": {
-			"oneOf": [
-				{
-					"type": "object",
-					"properties": {
-						"number": {
-							"type": "integer"
-						},
-						"condition": {
-							"type": "string"
-						}
-					},
-					"required": ["number", "condition"],
-					"additionalProperties": false
-				},
-				{
-					"type": "integer"
-				}
-			]
-		},
-		"dmgType": {
-			"type": "string",
-			"enum": [
-				"acid",
-				"bludgeoning",
-				"cold",
-				"fire",
-				"force",
-				"lightning",
-				"necrotic",
-				"piercing",
-				"poison",
-				"psychic",
-				"radiant",
-				"slashing",
-				"thunder"
-			]
-		},
-		"conditions": {
-			"type": "string",
-			"enum": [
-				"blinded",
-				"charmed",
-				"deafened",
-				"exhaustion",
-				"frightened",
-				"grappled",
-				"incapacitated",
-				"invisible",
-				"paralyzed",
-				"petrified",
-				"poisoned",
-				"prone",
-				"restrained",
-				"stunned",
-				"unconscious",
-
-				"disease"
-			]
-		},
-		"damImmune": {
-			"oneOf": [
-				{
-					"$ref": "#/definitions/dmgType"
-				},
-				{
-					"type": "object",
-					"properties": {
-						"special": {
-							"type": "string"
-						}
-					},
-					"additionalProperties": false,
-					"required": ["special"]
-				},
-				{
-					"type": "object",
-					"properties": {
-						"preNote": {
-							"type": "string"
-						},
-						"immune": {
-							"type": "array",
-							"items": {
-								"$ref": "#/definitions/damImmune"
-							}
-						},
-						"note": {
-							"type": "string"
-						}
-					},
-					"additionalProperties": false,
-					"required": ["immune"]
-				}
-			]
-		},
-		"damResist": {
-			"oneOf": [
-				{
-					"$ref": "#/definitions/dmgType"
-				},
-				{
-					"type": "object",
-					"properties": {
-						"special": {
-							"type": "string"
-						}
-					},
-					"additionalProperties": false,
-					"required": ["special"]
-				},
-				{
-					"type": "object",
-					"properties": {
-						"preNote": {
-							"type": "string"
-						},
-						"resist": {
-							"type": "array",
-							"items": {
-								"$ref": "#/definitions/damResist"
-							}
-						},
-						"note": {
-							"type": "string"
-						}
-					},
-					"additionalProperties": false,
-					"required": ["resist"]
-				}
-			]
-		},
-		"damVuln": {
-			"oneOf": [
-				{
-					"$ref": "#/definitions/dmgType"
-				},
-				{
-					"type": "object",
-					"properties": {
-						"special": {
-							"type": "string"
-						}
-					},
-					"additionalProperties": false,
-					"required": ["special"]
-				},
-				{
-					"type": "object",
-					"properties": {
-						"preNote": {
-							"type": "string"
-						},
-						"vulnerable": {
-							"type": "array",
-							"items": {
-								"$ref": "#/definitions/damVuln"
-							}
-						},
-						"note": {
-							"type": "string"
-						}
-					},
-					"additionalProperties": false,
-					"required": ["vulnerable"]
-				}
-			]
-		},
-		"condImmune": {
-			"oneOf": [
-				{
-					"$ref": "#/definitions/conditions"
-				},
-				{
-					"type": "object",
-					"properties": {
-						"special": {
-							"type": "string"
-						}
-					},
-					"additionalProperties": false,
-					"required": ["special"]
-				},
-				{
-					"type": "object",
-					"properties": {
-						"preNote": {
-							"type": "string"
-						},
-						"conditionImmune": {
-							"type": "array",
-							"items": {
-								"$ref": "#/definitions/conditions"
-							}
-						},
-						"note": {
-							"type": "string"
-						}
-					},
-					"additionalProperties": false,
-					"required": ["conditionImmune"]
-				}
-			]
-		},
 		"align": {
 			"oneOf": [
 				{
@@ -325,6 +32,9 @@
 						},
 						"chance": {
 							"type": "integer"
+						},
+						"note": {
+							"type": "string"
 						}
 					},
 					"additionalProperties": false,
@@ -363,48 +73,82 @@
 							"type": "boolean"
 						}
 					},
-					"required": ["ac"]
+					"required": ["ac"],
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"properties": {
+						"special": {
+							"type": "string"
+						}
+					},
+					"required": ["special"],
+					"additionalProperties": false
 				},
 				{
 					"type": "integer"
 				}
 			]
 		},
-		"creature": {
+
+		"creatureData":  {
 			"type": "object",
 			"properties": {
 				"name": {
 					"type": "string"
 				},
+				"shortName": {
+					"oneOf": [
+						{
+							"description": "Used anywhere a shortened form of the creatures name is required (e.g. in legendary action headers). If not supplied, a shortened name will be automatically generated from the creature's full name.",
+							"type": "string"
+						},
+						{
+							"description": "As above, but \"true\" if the \"shortName\" should be an exact copy of the creature's \"name\".",
+							"type": "boolean"
+						}
+					]
+				},
+				"alias": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				},
 				"group": {
-					"type": "string"
+					"description": "A group name, indexed by search. E.g. searching \"Lycanthrope\" would otherwise fail to find anything",
+					"type": ["string", "null"]
+				},
+				"level": {
+					"description": "Used in sidekicks, which can have levels (and generally do not have alignment)",
+					"type": "integer"
 				},
 				"size": {
+					"type": "string",
+					"enum": [
+						"F",
+						"D",
+						"T",
+						"S",
+						"M",
+						"L",
+						"H",
+						"G",
+						"C",
+						"V"
+					]
+				},
+				"sizeNote": {
 					"type": "string"
 				},
 				"type": {
-					"anyOf": [
+					"oneOf": [
 						{
 							"type": "object",
 							"properties": {
 								"type": {
-									"type": "string",
-									"enum": [
-										"aberration",
-										"beast",
-										"celestial",
-										"construct",
-										"dragon",
-										"elemental",
-										"fey",
-										"fiend",
-										"giant",
-										"humanoid",
-										"monstrosity",
-										"ooze",
-										"plant",
-										"undead"
-									]
+									"$ref": "util.json#/definitions/creatureType"
 								},
 								"swarmSize": {
 									"type": "string",
@@ -425,7 +169,7 @@
 									"type": "array",
 									"uniqueItems": true,
 									"items": {
-										"anyOf": [
+										"oneOf": [
 											{
 												"type": "string"
 											},
@@ -455,31 +199,31 @@
 							"additionalProperties": false
 						},
 						{
-							"type": "string",
-							"enum": [
-								"aberration",
-								"beast",
-								"celestial",
-								"construct",
-								"dragon",
-								"elemental",
-								"fey",
-								"fiend",
-								"giant",
-								"humanoid",
-								"monstrosity",
-								"ooze",
-								"plant",
-								"undead"
-							]
+							"$ref": "util.json#/definitions/creatureType"
 						}
 					]
 				},
 				"source": {
 					"type": "string"
 				},
-				"sourceSub": {
-					"type": "string"
+				"otherSources": {
+					"$ref": "util.json#/definitions/otherSources"
+				},
+				"externalSources": {
+					"description": "For homebrew use only.",
+					"type": "array",
+					"items": {
+						"type": "object",
+						"properties": {
+							"entry": {
+								"$ref": "entry.json"
+							}
+						},
+						"required": [
+							"entry"
+						],
+						"additionalProperties": false
+					}
 				},
 				"alignment": {
 					"type": "array",
@@ -519,51 +263,7 @@
 					]
 				},
 				"speed": {
-					"type": "object",
-					"properties": {
-						"walk": {
-							"$ref": "#/definitions/speedVal"
-						},
-						"burrow": {
-							"$ref": "#/definitions/speedVal"
-						},
-						"climb": {
-							"$ref": "#/definitions/speedVal"
-						},
-						"fly": {
-							"$ref": "#/definitions/speedVal"
-						},
-						"swim": {
-							"$ref": "#/definitions/speedVal"
-						},
-						"choose": {
-							"type": "object",
-							"properties": {
-								"from": {
-									"type": "array",
-									"items": {
-										"type": "string",
-										"enum": [
-											"walk",
-											"burrow",
-											"climb",
-											"fly",
-											"swim"
-										]
-									}
-								},
-								"amount": {
-									"type": "integer"
-								},
-								"note": {
-									"type": "string"
-								}
-							},
-							"required": ["amount", "from"],
-							"additionalProperties": false
-						}
-					},
-					"additionalProperties": false
+					"$ref": "util.json#/definitions/speed"
 				},
 				"str": {
 					"type": "integer"
@@ -591,7 +291,11 @@
 						"con": {"type": "string"},
 						"int": {"type": "string"},
 						"wis": {"type": "string"},
-						"cha": {"type": "string"}
+						"cha": {"type": "string"},
+						"special": {
+							"description": "For use in homebrew.",
+							"$ref": "entry.json"
+						}
 					},
 					"additionalProperties": false
 				},
@@ -659,74 +363,74 @@
 								"properties": {
 									"oneOf": {
 										"type": "object",
-										"acrobatics": {
-											"type": "string"
-										},
-										"animal handling": {
-											"type": "string"
-										},
-										"arcana": {
-											"type": "string"
-										},
-										"athletics": {
-											"type": "string"
-										},
-										"deception": {
-											"type": "string"
-										},
-										"history": {
-											"type": "string"
-										},
-										"insight": {
-											"type": "string"
-										},
-										"intimidation": {
-											"type": "string"
-										},
-										"investigation": {
-											"type": "string"
-										},
-										"medicine": {
-											"type": "string"
-										},
-										"nature": {
-											"type": "string"
-										},
-										"perception": {
-											"type": "string"
-										},
-										"performance": {
-											"type": "string"
-										},
-										"persuasion": {
-											"type": "string"
-										},
-										"religion": {
-											"type": "string"
-										},
-										"sleight of hand": {
-											"type": "string"
-										},
-										"stealth": {
-											"type": "string"
-										},
-										"survival": {
-											"type": "string"
+										"properties": {
+											"acrobatics": {"type": "string"},
+											"animal handling": {"type": "string"},
+											"arcana": {"type": "string"},
+											"athletics": {"type": "string"},
+											"deception": {"type": "string"},
+											"history": {"type": "string"},
+											"insight": {"type": "string"},
+											"intimidation": {"type": "string"},
+											"investigation": {"type": "string"},
+											"medicine": {"type": "string"},
+											"nature": {"type": "string"},
+											"perception": {"type": "string"},
+											"performance": {"type": "string"},
+											"persuasion": {"type": "string"},
+											"religion": {"type": "string"},
+											"sleight of hand": {"type": "string"},
+											"stealth": {"type": "string"},
+											"survival": {"type": "string"}
 										}
 									}
 								}
 							}
+						},
+						"special": {
+							"description": "For use in homebrew.",
+							"$ref": "entry.json"
 						}
 					},
 					"additionalProperties": false
 				},
 				"senses": {
-					"type": "string"
+					"oneOf": [
+						{
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						},
+						{
+							"type": "null"
+						}
+					]
 				},
 				"passive": {
-					"type": "integer"
+					"oneOf": [
+						{
+							"type": "integer"
+						},
+						{
+							"type": "string"
+						}
+					]
 				},
 				"languages": {
+					"oneOf": [
+						{
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
+				"pbNote": {
 					"type": "string"
 				},
 				"cr": {
@@ -745,6 +449,9 @@
 								},
 								"coven": {
 									"type": "string"
+								},
+								"xp": {
+									"type": "integer"
 								}
 							},
 							"additionalProperties": false,
@@ -752,154 +459,101 @@
 						}
 					]
 				},
-				"description": {
-					"type": "string"
-				},
 				"vulnerable": {
-					"type": "array",
-					"items": {
-						"$ref": "#/definitions/damVuln"
-					}
+					"$ref": "util.json#/definitions/damageVulnerabilityArray"
 				},
 				"resist": {
-					"type": "array",
-					"items": {
-						"$ref": "#/definitions/damResist"
-					}
-				},
-				"conditionImmune": {
-					"type": "array",
-					"items": {
-						"$ref": "#/definitions/condImmune"
-					}
+					"$ref": "util.json#/definitions/damageResistArray"
 				},
 				"immune": {
-					"type": "array",
-					"items": {
-						"$ref": "#/definitions/damImmune"
-					}
+					"$ref": "util.json#/definitions/damageImmunityArray"
+				},
+				"conditionImmune": {
+					"$ref": "util.json#/definitions/conditionImmunityArray"
 				},
 				"spellcasting": {
-					"type": "array",
-					"items": {
-						"type": "object",
-						"properties": {
-							"name": {
-								"type": "string"
-							},
-							"headerEntries": {
-								"type": "array",
-								"items": {
-									"$ref": "/Entry"
-								}
-							},
-							"constant": {
-								"$ref": "#/definitions/arrayOfString"
-							},
-							"headerWill": {
-								"$ref": "#/definitions/arrayOfString"
-							},
-							"will": {
-								"$ref": "#/definitions/arrayOfString"
-							},
-							"rest": {
-								"$ref": "#/definitions/frequency"
-							},
-							"daily": {
-								"$ref": "#/definitions/frequency"
-							},
-							"weekly": {
-								"$ref": "#/definitions/frequency"
-							},
-							"spells": {
-								"type": "object",
-								"properties": {
-									"0": {
-										"type": "object",
-										"properties": {
-											"spells": {
-												"type": "array",
-												"uniqueItems": true,
-												"items": {
-													"type": "string"
-												}
-											}
-										},
-										"required": [
-											"spells"
-										],
-										"additionalProperties": false
-									},
-									"1": {
-										"$ref": "#/definitions/level1to9"
-									},
-									"2": {
-										"$ref": "#/definitions/level1to9"
-									},
-									"3": {
-										"$ref": "#/definitions/level1to9"
-									},
-									"4": {
-										"$ref": "#/definitions/level1to9"
-									},
-									"5": {
-										"$ref": "#/definitions/level1to9"
-									},
-									"6": {
-										"$ref": "#/definitions/level1to9"
-									},
-									"7": {
-										"$ref": "#/definitions/level1to9"
-									},
-									"8": {
-										"$ref": "#/definitions/level1to9"
-									},
-									"9": {
-										"$ref": "#/definitions/level1to9"
-									}
-								},
-								"additionalProperties": false
-							},
-							"footerEntries": {
-								"type": "array",
-								"items": {
-									"$ref": "/Entry"
-								}
+					"oneOf": [
+						{
+							"type": "array",
+							"items": {
+								"$ref": "entry.json#/definitions/entrySpellcasting"
 							}
 						},
-						"required": [
-							"name"
-						],
-						"additionalProperties": false
-					}
+						{
+							"type": "null"
+						}
+					]
 				},
 				"trait": {
-					"type": "array",
-					"items": {
-						"type": "object",
-						"properties": {
-							"name": {
-								"type": "string"
-							},
-							"entries": {
-								"type": "array",
-								"items": {
-									"$ref": "/Entry"
-								}
-							},
-							"type": {
-								"type": "string",
-								"enum": ["entries", "inset"]
+					"oneOf": [
+						{
+							"type": "array",
+							"items": {
+								"type": "object",
+								"properties": {
+									"name": {
+										"type": "string"
+									},
+									"entries": {
+										"type": "array",
+										"items": {
+											"$ref": "entry.json"
+										}
+									},
+									"type": {
+										"type": "string",
+										"enum": ["entries", "inset"]
+									},
+									"sort": {
+										"description": "Forces a sort order. Traits with sort orders will always be arranged before those without.",
+										"type": "integer"
+									}
+								},
+								"required": [
+									"name",
+									"entries"
+								],
+								"additionalProperties": false
 							}
 						},
-						"required": [
-							"name",
-							"entries"
-						],
-						"additionalProperties": false
-					}
+						{
+							"type": "null"
+						}
+					]
+				},
+				"actionNote": {
+					"type": "string"
 				},
 				"action": {
+					"oneOf": [
+						{
+							"type": "array",
+							"items": {
+								"type": "object",
+								"properties": {
+									"name": {
+										"type": "string"
+									},
+									"entries": {
+										"type": "array",
+										"items": {
+											"$ref": "entry.json"
+										}
+									}
+								},
+								"required": [
+									"name",
+									"entries"
+								],
+								"additionalProperties": false
+							}
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
+				"bonus": {
 					"type": "array",
 					"items": {
 						"type": "object",
@@ -910,7 +564,7 @@
 							"entries": {
 								"type": "array",
 								"items": {
-									"$ref": "/Entry"
+									"$ref": "entry.json"
 								}
 							}
 						},
@@ -932,7 +586,7 @@
 							"entries": {
 								"type": "array",
 								"items": {
-									"$ref": "/Entry"
+									"$ref": "entry.json"
 								}
 							}
 						},
@@ -944,12 +598,60 @@
 					}
 				},
 				"legendaryGroup": {
-					"type": "string"
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string"
+						},
+						"source": {
+							"type": "string"
+						}
+					}
 				},
 				"legendaryActions": {
 					"type": "number"
 				},
+				"legendaryHeader": {
+					"type": "array",
+					"items": {
+						"$ref": "entry.json"
+					}
+				},
 				"legendary": {
+					"oneOf": [
+						{
+							"type": "array",
+							"items": {
+								"type": "object",
+								"properties": {
+									"name": {
+										"type": "string"
+									},
+									"entries": {
+										"type": "array",
+										"items": {
+											"$ref": "entry.json"
+										}
+									}
+								},
+								"required": [
+									"entries"
+								],
+								"additionalProperties": false
+							}
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
+				"mythicHeader": {
+					"type": "array",
+					"items": {
+						"$ref": "entry.json"
+					}
+				},
+				"mythic": {
 					"type": "array",
 					"items": {
 						"type": "object",
@@ -960,14 +662,7 @@
 							"entries": {
 								"type": "array",
 								"items": {
-									"$ref": "/Entry"
-								}
-							},
-							"attack": {
-								"type": "array",
-								"uniqueItems": true,
-								"items": {
-									"type": "string"
+									"$ref": "entry.json"
 								}
 							}
 						},
@@ -980,20 +675,73 @@
 				"variant": {
 					"type": "array",
 					"items": {
-						"$ref": "/Entry"
+						"type": "object",
+						"properties": {
+							"type": {
+								"type": "string"
+							},
+							"name": {
+								"type": "string"
+							},
+							"entries": {
+								"type": "array",
+								"items": {
+									"$ref": "entry.json"
+								}
+							},
+							"token": {
+								"type": "object",
+								"properties": {
+									"name": {
+										"type": "string"
+									},
+									"source": {
+										"type": "string"
+									},
+									"page": {
+										"type": "integer"
+									}
+								},
+								"required": ["name", "source"]
+							},
+							"variantSource": {
+								"type": "object",
+								"properties": {
+									"source": {
+										"type": "string"
+									},
+									"page": {
+										"type": "integer"
+									}
+								}
+							}
+						},
+						"additionalProperties": false
 					}
 				},
 				"page": {
-					"type": "int"
+					"type": "integer"
 				},
 				"familiar": {
 					"type": "boolean"
 				},
 				"additionalSources": {
+					"$ref": "util.json#/definitions/additionalSources"
+				},
+				"hasToken": {
+					"type": "boolean"
+				},
+				"tokenUrl": {
+					"type": "string"
+				},
+				"altArt": {
 					"type": "array",
 					"items": {
 						"type": "object",
 						"properties": {
+							"name": {
+								"type": "string"
+							},
 							"source": {
 								"type": "string"
 							},
@@ -1001,31 +749,50 @@
 								"type": "integer"
 							}
 						},
-						"required": [
-							"source",
-							"page"
-						],
-						"additionalProperties": false
+						"required": ["name", "source"]
 					}
-				},
-				"tokenURL": {
-					"type": "string"
 				},
 				"fluff": {
 					"description": "This is intended to be used for Homebrew only - site data should include a fluff file per source",
-					"type": "object",
-					"properties": {
-						"entries": {
-							"entries": {
-								"type": "array",
-								"items": {
-									"$ref": "/Entry"
+					"oneOf": [
+						{
+							"$ref": "util.json#/definitions/fluffObject"
+						},
+						{
+							"description": "Reference \"monsterFluff\" array items",
+							"type": "object",
+							"properties": {
+								"_monsterFluff": {
+									"type": "object",
+									"properties": {
+										"name": {
+											"type": "string"
+										},
+										"source": {
+											"type": "string"
+										}
+									}
+								},
+								"_appendMonsterFluff": {
+									"type": "object",
+									"properties": {
+										"name": {
+											"type": "string"
+										},
+										"source": {
+											"type": "string"
+										}
+									}
 								}
 							}
 						}
-					}
+					]
 				},
 				"isNamedCreature": {
+					"type": "boolean"
+				},
+				"isNpc": {
+					"description": "Used to flag adventure NPCs",
 					"type": "boolean"
 				},
 				"environment": {
@@ -1048,28 +815,184 @@
 					}
 				},
 				"soundClip": {
-					"type": "string"
-				}
+					"$ref": "entry.json#/definitions/mediaHref"
+				},
+				"dragonCastingColor": {
+					"type": "string",
+					"enum": [
+						"B", "U", "G", "R", "W", "A", "Z", "C", "O", "S"
+					]
+				},
+				"traitTags": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"enum": [
+							"Aggressive",
+							"Ambusher",
+							"Amorphous",
+							"Amphibious",
+							"Antimagic Susceptibility",
+							"Brute",
+							"Charge",
+							"Damage Absorption",
+							"Death Burst",
+							"Devil's Sight",
+							"False Appearance",
+							"Fey Ancestry",
+							"Flyby",
+							"Hold Breath",
+							"Illumination",
+							"Immutable Form",
+							"Incorporeal Movement",
+							"Keen Senses",
+							"Legendary Resistances",
+							"Light Sensitivity",
+							"Magic Resistance",
+							"Magic Weapons",
+							"Pack Tactics",
+							"Pounce",
+							"Rampage",
+							"Reckless",
+							"Regeneration",
+							"Rejuvenation",
+							"Shapechanger",
+							"Siege Monster",
+							"Sneak Attack",
+							"Spell Immunity",
+							"Spider Climb",
+							"Sunlight Sensitivity",
+							"Turn Immunity",
+							"Turn Resistance",
+							"Undead Fortitude",
+							"Water Breathing",
+							"Web Sense",
+							"Web Walker"
+						]
+					}
+				},
+				"actionTags": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"enum": [
+							"Frightful Presence",
+							"Multiattack",
+							"Parry",
+							"Shapechanger",
+							"Swallow",
+							"Teleport",
+							"Tentacles"
+						]
+					}
+				},
+				"languageTags": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"enum": [
+							"AB", "AQ", "AU", "C", "CE", "CS","D", "DR", "DS", "DU", "E", "G", "GI", "GO", "GTH", "H", "I", "IG", "LF", "O", "OTH", "P", "S", "T", "TC", "TP", "U", "X", "XX"
+						]
+					}
+				},
+				"senseTags": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"enum": ["B", "D", "SD", "T", "U"]
+					}
+				},
+				"spellcastingTags": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"enum": ["P", "I", "F", "S", "CA", "CB", "CC", "CD", "CP", "CR", "CS", "CL", "CW"]
+					}
+				},
+				"damageTags": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"enum": ["A", "B", "C", "F", "O", "L", "N", "P", "I", "Y", "R", "S", "T"]
+					}
+				},
+				"miscTags": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"enum": ["MW", "RW", "RCH", "THW", "RNG", "AOE"]
+					}
+				},
+				"conditionInflict": {
+					"$ref": "util.json#/definitions/tagsConditions"
+				},
+				"conditionInflictLegendary": {
+					"$ref": "util.json#/definitions/tagsConditions"
+				},
+				"conditionInflictSpell": {
+					"$ref": "util.json#/definitions/tagsConditions"
+				},
+				"footer": {
+					"description": "Intended for homebrew use only.",
+					"type": "array",
+					"items": {
+						"$ref": "entry.json"
+					}
+				},
+				"srd": {
+					"$ref": "util.json#/definitions/srd"
+				},
+				"_isCopy": {
+					"description": "An internal flag indicating this creature is a copy of another, and is a temporary/placeholder entry which will be factored out using the \"_copy\" format at a later date.",
+					"type": "boolean"
+				},
+				"hasFluff": {"type": "boolean"},
+				"hasFluffImages": {"type": "boolean"}
 			},
-			"required": [
-				"ac",
-				"alignment",
-				"cha",
-				"con",
-				"cr",
-				"dex",
-				"hp",
-				"int",
-				"name",
-				"passive",
-				"size",
-				"source",
-				"speed",
-				"str",
-				"type",
-				"wis"
-			],
 			"additionalProperties": false
+		},
+
+		"creature": {
+			"anyOf": [
+				{
+					"type": "object",
+					"$$merge": [
+						{
+							"$ref": "#/definitions/creatureData"
+						},
+						{
+							"required": [
+								"name",
+								"size",
+								"type",
+								"source",
+								"ac",
+								"hp",
+								"speed",
+								"str",
+								"dex",
+								"con",
+								"int",
+								"wis",
+								"cha",
+								"passive"
+							]
+						}
+					]
+				},
+				{
+					"type": "object",
+					"$comment": "This is a custom pre-processor tag, which merges together the array of objects into one. This allows proper inheritance, which JSON schema don't really do.",
+					"$$merge": [
+						{
+							"$ref": "#/definitions/creatureData"
+						},
+						{
+							"$ref": "util.json#/definitions/copyBlock"
+						}
+					]
+				}
+			]
 		}
 	},
 	"properties": {
@@ -1079,6 +1002,9 @@
 			"items": {
 				"$ref": "#/definitions/creature"
 			}
+		},
+		"_meta": {
+			"$ref": "util.json#/definitions/metaBlock"
 		}
 	},
 	"additionalProperties": false

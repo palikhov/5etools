@@ -1,516 +1,458 @@
 "use strict";
 
-window.onload = function load () {
-	ExcludeUtil.initialise();
-	EntryRenderer.item.buildList((incItemList) => {
-		populateTablesAndFilters(incItemList);
-	}, {}, true);
-};
+class ItemsPage extends ListPage {
+	constructor () {
+		super({
+			dataSource: Renderer.item.pBuildList({isAddGroups: true, isBlacklistVariants: true}),
 
-function rarityValue (rarity) { // Ordered by most frequently occurring rarities in the JSON
-	if (rarity === "Rare") return 3;
-	if (rarity === "None") return 0;
-	if (rarity === "Uncommon") return 2;
-	if (rarity === "Very Rare") return 4;
-	if (rarity === "Legendary") return 5;
-	if (rarity === "Artifact") return 6;
-	if (rarity === "Unknown") return 7;
-	if (rarity === "Common") return 1;
-	return 0;
-}
+			pageFilter: new PageFilterItems(),
 
-function sortItems (a, b, o) {
-	if (o.valueName === "name") return b._values.name.toLowerCase() > a._values.name.toLowerCase() ? 1 : -1;
-	else if (o.valueName === "type") {
-		if (b._values.type === a._values.type) return SortUtil.compareNames(a, b);
-		return b._values.type.toLowerCase() > a._values.type.toLowerCase() ? 1 : -1;
-	} else if (o.valueName === "source") {
-		if (b._values.source === a._values.source) return SortUtil.compareNames(a, b);
-		return b._values.source.toLowerCase() > a._values.source.toLowerCase() ? 1 : -1;
-	} else if (o.valueName === "rarity") {
-		if (b._values.rarity === a._values.rarity) return SortUtil.compareNames(a, b);
-		return rarityValue(b._values.rarity) > rarityValue(a._values.rarity) ? 1 : -1;
-	} else if (o.valueName === "count") {
-		return SortUtil.ascSort(Number(a.values().count), Number(b.values().count));
-	} else if (o.valueName === "weight") {
-		return SortUtil.ascSort(Number(a.values().weight), Number(b.values().weight));
-	} else if (o.valueName === "cost") {
-		return SortUtil.ascSort(Number(a.values().cost), Number(b.values().cost));
-	} else return 0;
-}
+			sublistClass: "subitems",
 
-function deselectFilter (deselectProperty, deselectValue) {
-	return function (val) {
-		if (window.location.hash.length && !window.location.hash.startsWith(`#${HASH_BLANK}`)) {
-			const curItem = History.getSelectedListElement();
-			if (!curItem) return deselNoHash();
+			dataProps: ["item"],
+		})
 
-			const itemProperty = itemList[curItem.attr("id")][deselectProperty];
-			if (itemProperty === deselectValue) {
-				return deselNoHash();
-			} else {
-				return val === deselectValue && itemProperty !== val;
-			}
+		this._sublistCurrencyConversion = null;
+		this._sublistCurrencyDisplayMode = null;
+
+		this._$totalWeight = null;
+		this._$totalValue = null;
+		this._$totalItems = null;
+
+		this._mundaneList = null;
+		this._magicList = null;
+	}
+
+	getListItem (item, itI, isExcluded) {
+		const hash = UrlUtil.autoEncodeHash(item);
+
+		if (ExcludeUtil.isExcluded(hash, "item", item.source)) return null;
+		if (item.noDisplay) return null;
+		Renderer.item.enhanceItem(item);
+
+		this._pageFilter.mutateAndAddToFilters(item, isExcluded);
+
+		const eleLi = document.createElement("div");
+		eleLi.className = `lst__row flex-col ${isExcluded ? "lst__row--blacklisted" : ""}`;
+
+		const source = Parser.sourceJsonToAbv(item.source);
+		const type = item._typeListText.join(", ").toTitleCase();
+
+		if (item._fIsMundane) {
+			eleLi.innerHTML = `<a href="#${hash}" class="lst--border lst__row-inner">
+				<span class="col-3-5 pl-0 bold">${item.name}</span>
+				<span class="col-4-5">${type}</span>
+				<span class="col-1-5 text-center">${item.value || item.valueMult ? Parser.itemValueToFullMultiCurrency(item, {isShortForm: true}).replace(/ +/g, "\u00A0") : "\u2014"}</span>
+				<span class="col-1-5 text-center">${Parser.itemWeightToFull(item, true) || "\u2014"}</span>
+				<span class="col-1 text-center ${Parser.sourceJsonToColor(item.source)} pr-0" title="${Parser.sourceJsonToFull(item.source)}" ${BrewUtil.sourceJsonToStyle(item.source)}>${source}</span>
+			</a>`;
+
+			const listItem = new ListItem(
+				itI,
+				eleLi,
+				item.name,
+				{
+					hash,
+					source,
+					type,
+					cost: item.value || 0,
+					weight: Parser.weightValueToNumber(item.weight),
+				},
+				{
+					uniqueId: item.uniqueId ? item.uniqueId : itI,
+					isExcluded,
+				},
+			);
+			eleLi.addEventListener("click", (evt) => this._mundaneList.doSelect(listItem, evt));
+			eleLi.addEventListener("contextmenu", (evt) => ListUtil.openContextMenu(evt, this._mundaneList, listItem));
+			return {mundane: listItem};
 		} else {
-			return deselNoHash();
-		}
+			eleLi.innerHTML += `<a href="#${hash}" class="lst--border lst__row-inner">
+				<span class="col-3-5 pl-0 bold">${item.name}</span>
+				<span class="col-4">${type}</span>
+				<span class="col-1-5 text-center">${Parser.itemWeightToFull(item, true) || "\u2014"}</span>
+				<span class="attunement col-0-6 text-center">${item._attunementCategory !== VeCt.STR_NO_ATTUNEMENT ? "×" : ""}</span>
+				<span class="rarity col-1-4">${(item.rarity || "").toTitleCase()}</span>
+				<span class="source col-1 text-center ${Parser.sourceJsonToColor(item.source)} pr-0" title="${Parser.sourceJsonToFull(item.source)}" ${BrewUtil.sourceJsonToStyle(item.source)}>${source}</span>
+			</a>`;
 
-		function deselNoHash () {
-			return val === deselectValue;
-		}
-	}
-}
-
-let mundanelist;
-let magiclist;
-const sourceFilter = getSourceFilter();
-const typeFilter = new Filter({header: "Type", deselFn: deselectFilter("type", "$")});
-const tierFilter = new Filter({header: "Tier", items: ["None", "Minor", "Major"]});
-const propertyFilter = new Filter({header: "Property", displayFn: StrUtil.uppercaseFirst});
-let filterBox;
-function populateTablesAndFilters (data) {
-	const rarityFilter = new Filter({
-		header: "Rarity",
-		items: ["None", "Common", "Uncommon", "Rare", "Very Rare", "Legendary", "Artifact", "Unknown"]
-	});
-	const attunementFilter = new Filter({header: "Attunement", items: ["Yes", "By...", "Optional", "No"]});
-	const categoryFilter = new Filter({
-		header: "Category",
-		items: ["Basic", "Generic Variant", "Specific Variant", "Other"],
-		deselFn: deselectFilter("category", "Specific Variant")
-	});
-	const miscFilter = new Filter({header: "Miscellaneous", items: ["Cursed", "Magic", "Mundane", "Sentient"]});
-
-	filterBox = initFilterBox(sourceFilter, typeFilter, tierFilter, rarityFilter, propertyFilter, attunementFilter, categoryFilter, miscFilter);
-
-	const mundaneOptions = {
-		valueNames: ["name", "type", "cost", "weight", "source"],
-		listClass: "mundane",
-		sortClass: "none"
-	};
-	mundanelist = ListUtil.search(mundaneOptions);
-	const magicOptions = {
-		valueNames: ["name", "type", "weight", "rarity", "source"],
-		listClass: "magic",
-		sortClass: "none"
-	};
-	magiclist = ListUtil.search(magicOptions);
-
-	const mundaneWrapper = $(`.ele-mundane`);
-	const magicWrapper = $(`.ele-magic`);
-	mundanelist.on("updated", () => {
-		hideListIfEmpty(mundanelist, mundaneWrapper);
-		filterBox.setCount(mundanelist.visibleItems.length + magiclist.visibleItems.length, mundanelist.items.length + magiclist.items.length);
-	});
-	magiclist.on("updated", () => {
-		hideListIfEmpty(magiclist, magicWrapper);
-		filterBox.setCount(mundanelist.visibleItems.length + magiclist.visibleItems.length, mundanelist.items.length + magiclist.items.length);
-	});
-
-	// filtering function
-	$(filterBox).on(
-		FilterBox.EVNT_VALCHANGE,
-		handleFilterChange
-	);
-
-	function hideListIfEmpty (list, $eles) {
-		if (list.visibleItems.length === 0) {
-			$eles.hide();
-		} else {
-			$eles.show();
+			const listItem = new ListItem(
+				itI,
+				eleLi,
+				item.name,
+				{
+					source,
+					hash,
+					type,
+					rarity: item.rarity,
+					attunement: item._attunementCategory !== VeCt.STR_NO_ATTUNEMENT,
+					weight: Parser.weightValueToNumber(item.weight),
+				},
+				{uniqueId: item.uniqueId ? item.uniqueId : itI},
+			);
+			eleLi.addEventListener("click", (evt) => this._magicList.doSelect(listItem, evt));
+			eleLi.addEventListener("contextmenu", (evt) => ListUtil.openContextMenu(evt, this._magicList, listItem));
+			return {magic: listItem};
 		}
 	}
 
-	$("#filtertools-mundane").find("button.sort").off("click").on("click", function (evt) {
-		evt.stopPropagation();
-		$(this).data("sortby", $(this).data("sortby") === "asc" ? "desc" : "asc");
-		mundanelist.sort($(this).data("sort"), {order: $(this).data("sortby"), sortFunction: sortItems});
-	});
-
-	$("#filtertools-magic").find("button.sort").on("click", function (evt) {
-		evt.stopPropagation();
-		$(this).data("sortby", $(this).data("sortby") === "asc" ? "desc" : "asc");
-		magiclist.sort($(this).data("sort"), {order: $(this).data("sortby"), sortFunction: sortItems});
-	});
-
-	$("#itemcontainer").find("h3").not(":has(input)").click(function () {
-		if ($(this).next("ul.list").css("max-height") === "500px") {
-			$(this).siblings("ul.list").animate({
-				maxHeight: "250px",
-				display: "block"
-			});
-			return;
+	handleFilterChange () {
+		const f = this._pageFilter.filterBox.getValues();
+		function listFilter (li) {
+			const it = this._dataList[li.ix];
+			return this._pageFilter.toDisplay(f, it);
 		}
-		$(this).next("ul.list").animate({
-			maxHeight: "500px",
-			display: "block"
-		}).siblings("ul.list").animate({
-			maxHeight: "0",
-			display: "none"
-		});
-	});
-
-	RollerUtil.addListRollButton();
-	addListShowHide();
-
-	const subList = ListUtil.initSublist(
-		{
-			valueNames: ["name", "weight", "price", "count", "id"],
-			listClass: "subitems",
-			sortFunction: sortItems,
-			getSublistRow: getSublistItem,
-			onUpdate: onSublistChange
-		}
-	);
-	ListUtil.initGenericAddable();
-
-	addItems(data);
-	BrewUtil.addBrewData(handleBrew);
-	BrewUtil.makeBrewButton("manage-brew");
-	BrewUtil.bind({lists: [mundanelist, magiclist], filterBox, sourceFilter});
-	ListUtil.loadState();
-
-	History.init();
-}
-
-function handleBrew (homebrew) {
-	(homebrew.itemProperty || []).forEach(p => EntryRenderer.item._addProperty(p));
-	(homebrew.itemType || []).forEach(t => EntryRenderer.item._addType(t));
-	addItems(homebrew.item);
-}
-
-let itemList = [];
-let itI = 0;
-function addItems (data) {
-	if (!data || !data.length) return;
-
-	itemList = itemList.concat(data);
-
-	const liList = {mundane: "", magic: ""}; // store the <li> tag content here and change the DOM once for each property after the loop
-
-	for (; itI < itemList.length; itI++) {
-		const curitem = itemList[itI];
-		if (ExcludeUtil.isExcluded(curitem.name, "item", curitem.source)) continue;
-		if (curitem.noDisplay) continue;
-		if (!curitem._isEnhanced) EntryRenderer.item.enhanceItem(curitem);
-
-		const name = curitem.name;
-		const rarity = curitem.rarity;
-		const category = curitem.category;
-		const source = curitem.source;
-		const sourceAbv = Parser.sourceJsonToAbv(source);
-		const sourceFull = Parser.sourceJsonToFull(source);
-		const tierTags = [];
-		tierTags.push(curitem.tier ? curitem.tier : "None");
-
-		// for filter to use
-		curitem._fTier = tierTags;
-		curitem._fProperties = curitem.property ? curitem.property.map(p => curitem._allPropertiesPtr[p].name).filter(n => n) : [];
-		curitem._fMisc = curitem.sentient ? ["Sentient"] : [];
-		if (curitem.curse) curitem._fMisc.push("Cursed");
-		const isMundane = rarity === "None" || rarity === "Unknown" || category === "Basic";
-		curitem._fMisc.push(isMundane ? "Mundane" : "Magic");
-
-		if (isMundane) {
-			liList["mundane"] += `
-			<li class="row" ${FLTR_ID}=${itI} onclick="ListUtil.toggleSelected(event, this)" oncontextmenu="ListUtil.openContextMenu(event, this)">
-				<a id="${itI}" href="#${UrlUtil.autoEncodeHash(curitem)}" title="${name}">
-					<span class="name col-xs-3">${name}</span>
-					<span class="type col-xs-4 col-xs-4-3">${curitem.typeText}</span>
-					<span class="col-xs-1 col-xs-1-5 text-align-center">${curitem.value || "\u2014"}</span>
-					<span class="col-xs-1 col-xs-1-5 text-align-center">${Parser.itemWeightToFull(curitem) || "\u2014"}</span>
-					<span class="source col-xs-1 col-xs-1-7 source${sourceAbv}" title="${sourceFull}">${sourceAbv}</span>
-					<span class="cost hidden">${Parser.coinValueToNumber(curitem.value)}</span>
-					<span class="weight hidden">${Parser.weightValueToNumber(curitem.weight)}</span>
-				</a>
-			</li>`;
-		} else {
-			liList["magic"] += `
-			<li class="row" ${FLTR_ID}=${itI} onclick="ListUtil.toggleSelected(event, this)" oncontextmenu="ListUtil.openContextMenu(event, this)">
-				<a id="${itI}" href="#${UrlUtil.autoEncodeHash(curitem)}" title="${name}">
-					<span class="name col-xs-3 col-xs-3-5">${name}</span>
-					<span class="type col-xs-3 col-xs-3-3">${curitem.typeText}</span>
-					<span class="col-xs-1 col-xs-1-5 text-align-center">${Parser.itemWeightToFull(curitem) || "\u2014"}</span>
-					<span class="rarity col-xs-2">${rarity}</span>
-					<span class="source col-xs-1 col-xs-1-7 source${sourceAbv}" title="${sourceFull}">${sourceAbv}</span>
-					<span class="weight hidden">${Parser.weightValueToNumber(curitem.weight)}</span>
-				</a>
-			</li>`;
-		}
-
-		// populate filters
-		sourceFilter.addIfAbsent(source);
-		curitem.procType.forEach(t => typeFilter.addIfAbsent(t));
-		tierTags.forEach(tt => tierFilter.addIfAbsent(tt));
-		curitem._fProperties.forEach(p => propertyFilter.addIfAbsent(p));
+		this._mundaneList.filter(listFilter.bind(this));
+		this._magicList.filter(listFilter.bind(this));
+		FilterBox.selectFirstVisible(this._dataList);
 	}
-	const lastSearch = ListUtil.getSearchTermAndReset(mundanelist, magiclist);
-	// populate table
-	$("ul.list.mundane").append(liList.mundane);
-	$("ul.list.magic").append(liList.magic);
-	// populate table labels
-	$(`h3.ele-mundane span.side-label`).text("Mundane");
-	$(`h3.ele-magic span.side-label`).text("Magic");
-	// sort filters
-	sourceFilter.items.sort(SortUtil.ascSort);
-	typeFilter.items.sort(SortUtil.ascSort);
 
-	mundanelist.reIndex();
-	magiclist.reIndex();
-	if (lastSearch) {
-		mundanelist.search(lastSearch);
-		magiclist.search(lastSearch);
-	}
-	mundanelist.sort("name");
-	magiclist.sort("name");
-	filterBox.render();
-	handleFilterChange();
+	getSublistItem (item, pinId, addCount) {
+		const hash = UrlUtil.autoEncodeHash(item);
+		const count = addCount || 1;
 
-	ListUtil.setOptions({
-		itemList: itemList,
-		getSublistRow: getSublistItem,
-		primaryLists: [mundanelist, magiclist]
-	});
-	ListUtil.bindAddButton();
-	ListUtil.bindSubtractButton();
-	EntryRenderer.hover.bindPopoutButton(itemList);
-	UrlUtil.bindLinkExportButton(filterBox);
-	ListUtil.bindDownloadButton();
-	ListUtil.bindUploadButton();
-}
-
-function handleFilterChange () {
-	const f = filterBox.getValues();
-	function listFilter (item) {
-		const i = itemList[$(item.elm).attr(FLTR_ID)];
-		return filterBox.toDisplay(
-			f,
-			i.source,
-			i.procType,
-			i._fTier,
-			i.rarity,
-			i._fProperties,
-			i.attunementCategory,
-			i.category,
-			i._fMisc
-		);
-	}
-	mundanelist.filter(listFilter);
-	magiclist.filter(listFilter);
-	FilterBox.nextIfHidden(itemList);
-}
-
-function onSublistChange () {
-	const totalWeight = $(`#totalweight`);
-	const totalValue = $(`#totalvalue`);
-	let weight = 0;
-	let value = 0;
-	ListUtil.sublist.items.forEach(it => {
-		const item = itemList[Number(it._values.id)];
-		const count = Number($(it.elm).find(".count").text());
-		if (item.weight) weight += Number(item.weight) * count;
-		if (item.value) value += Parser.coinValueToNumber(item.value) * count;
-	});
-	totalWeight.text(`${weight.toLocaleString()} lb${weight > 1 ? "s" : ""}.`);
-	totalValue.text(`${value.toLocaleString()}gp`)
-}
-
-function getSublistItem (item, pinId, addCount) {
-	return `
-		<li class="row" ${FLTR_ID}="${pinId}" oncontextmenu="ListUtil.openSubContextMenu(event, this)">
-			<a href="#${UrlUtil.autoEncodeHash(item)}" title="${item.name}">
-				<span class="name col-xs-6">${item.name}</span>
-				<span class="weight text-align-center col-xs-2">${item.weight ? `${item.weight} lb${item.weight > 1 ? "s" : ""}.` : "\u2014"}</span>		
-				<span class="price text-align-center col-xs-2">${item.value || "\u2014"}</span>
-				<span class="count text-align-center col-xs-2">${addCount || 1}</span>		
-				<span class="id hidden">${pinId}</span>
+		const $dispCount = $(`<span class="text-center col-2 pr-0">${count}</span>`);
+		const $ele = $$`<div class="lst__row lst__row--sublist flex-col">
+			<a href="#${hash}" class="lst--border lst__row-inner">
+				<span class="bold col-6 pl-0">${item.name}</span>
+				<span class="text-center col-2">${item.weight ? `${item.weight} lb${item.weight > 1 ? "s" : ""}.` : "\u2014"}</span>
+				<span class="text-center col-2">${item.value || item.valueMult ? Parser.itemValueToFullMultiCurrency(item, {isShortForm: true}).replace(/ +/g, "\u00A0") : "\u2014"}</span>
+				${$dispCount}
 			</a>
-		</li>
-	`;
-}
+		</div>`
+			.contextmenu(evt => ListUtil.openSubContextMenu(evt, listItem))
+			.click(evt => ListUtil.sublist.doSelect(listItem, evt));
 
-const renderer = EntryRenderer.getDefaultRenderer();
-function loadhash (id) {
-	renderer.setFirstSection(true);
-	const $content = $(`#pagecontent`).empty();
-	const item = itemList[id];
-
-	const $toAppend = $(`
-		${EntryRenderer.utils.getBorderTr()}
-		${EntryRenderer.utils.getNameTr(item)}
-		<tr>
-			<td id="typerarityattunement" class="typerarityattunement" colspan="6">
-				<span id="type">Type</span><span id="rarity">, rarity</span>
-				<span id="attunement">(requires attunement)</span>
-			</td>
-		</tr>
-		<tr>
-			<td id="valueweight" colspan="2"><span id="value">10gp</span> <span id="weight">45 lbs.</span></td>
-			<td id="damageproperties" class="damageproperties" colspan="4"><span id="damage">Damage</span> <span id="damagetype">type</span> <span id="properties">(versatile)</span></td>
-		</tr>
-		<tr id="text"><td class="divider" colspan="6"><div></div></td></tr>
-		${EntryRenderer.utils.getPageTr(item)}
-		${EntryRenderer.utils.getBorderTr()}	
-	`);
-	$content.append($toAppend);
-
-	const source = item.source;
-	const sourceFull = Parser.sourceJsonToFull(source);
-	$content.find("th.name").html(`<span class="stats-name">${item.name}</span><span class="stats-source source${item.source}" title="${Parser.sourceJsonToFull(item.source)}">${Parser.sourceJsonToAbv(item.source)}</span>`);
-
-	const type = item.type || "";
-	if (type === "INS" || type === "GS") item.additionalSources = item.additionalSources || [];
-	if (type === "INS") {
-		if (!item.additionalSources.find(it => it.source === "XGE" && it.page === 83)) item.additionalSources.push({ "source": "XGE", "page": 83 })
-	} else if (type === "GS") {
-		if (!item.additionalSources.find(it => it.source === "XGE" && it.page === 81)) item.additionalSources.push({ "source": "XGE", "page": 81 })
+		const listItem = new ListItem(
+			pinId,
+			$ele,
+			item.name,
+			{
+				hash,
+				source: Parser.sourceJsonToAbv(item.source),
+				weight: Parser.weightValueToNumber(item.weight),
+				cost: item.value || 0,
+				count,
+			},
+			{
+				$elesCount: [$dispCount],
+			},
+		);
+		return listItem;
 	}
-	const addSourceText = item.additionalSources ? `. Additional information from ${item.additionalSources.map(as => `<i>${Parser.sourceJsonToFull(as.source)}</i>, page ${as.page}`).join("; ")}.` : null;
-	$content.find("td#source span").html(`<i>${sourceFull}</i>${item.page ? `, page ${item.page}${addSourceText || ""}` : ""}`);
 
-	$content.find("td span#value").html(item.value ? item.value + (item.weight ? ", " : "") : "");
-	$content.find("td span#weight").html(item.weight ? item.weight + (Number(item.weight) === 1 ? " lb." : " lbs.") + (item.weightNote ? ` ${item.weightNote}` : "") : "");
-	$content.find("td span#rarity").html((item.tier ? ", " + item.tier : "") + (item.rarity ? ", " + item.rarity : ""));
-	$content.find("td span#attunement").html(item.reqAttune ? item.reqAttune : "");
-	$content.find("td span#type").html(item.typeText);
+	doLoadHash (id) {
+		Renderer.get().setFirstSection(true);
+		const $content = $(`#pagecontent`).empty();
+		const item = this._dataList[id];
 
-	const [damage, damageType, propertiesTxt] = EntryRenderer.item.getDamageAndPropertiesText(item);
-	$content.find("span#damage").html(damage);
-	$content.find("span#damagetype").html(damageType);
-	$content.find("span#properties").html(propertiesTxt);
+		function buildStatsTab () {
+			$content.append(RenderItems.$getRenderedItem(item));
+		}
 
-	$content.find("tr.text").remove();
-	const entryList = {type: "entries", entries: item.entries};
-	const renderStack = [];
-	renderer.recursiveEntryRender(entryList, renderStack, 1);
+		function buildFluffTab (isImageTab) {
+			return Renderer.utils.pBuildFluffTab({
+				isImageTab,
+				$content,
+				entity: item,
+				pFnGetFluff: Renderer.item.pGetFluff,
+			});
+		}
 
-	// tools, artisan tools, instruments, gaming sets
-	if (type === "T" || type === "AT" || type === "INS" || type === "GS") {
-		renderStack.push(`<p class="text-align-center"><i>See the <a href="${renderer.baseUrl}variantrules.html#${UrlUtil.encodeForHash(["Tool Proficiencies", "XGE"])}" target="_blank">Tool Proficiencies</a> entry of the Variant and Optional rules page for more information</i></p>`);
-		if (type === "INS") {
-			const additionEntriesList = {type: "entries", entries: TOOL_INS_ADDITIONAL_ENTRIES};
-			renderer.recursiveEntryRender(additionEntriesList, renderStack, 1);
-		} else if (type === "GS") {
-			const additionEntriesList = {type: "entries", entries: TOOL_GS_ADDITIONAL_ENTRIES};
-			renderer.recursiveEntryRender(additionEntriesList, renderStack, 1);
+		const tabMetas = [
+			new Renderer.utils.TabButton({
+				label: "Item",
+				fnPopulate: buildStatsTab,
+				isVisible: true,
+			}),
+			new Renderer.utils.TabButton({
+				label: "Info",
+				fnPopulate: buildFluffTab,
+				isVisible: Renderer.utils.hasFluffText(item),
+			}),
+			new Renderer.utils.TabButton({
+				label: "Images",
+				fnPopulate: buildFluffTab.bind(null, true),
+				isVisible: Renderer.utils.hasFluffImages(item),
+			}),
+		];
+
+		Renderer.utils.bindTabButtons({
+			tabButtons: tabMetas.filter(it => it.isVisible),
+			tabLabelReference: tabMetas.map(it => it.label),
+		});
+
+		ListUtil.updateSelected();
+	}
+
+	async pDoLoadSubHash (sub) {
+		sub = this._pageFilter.filterBox.setFromSubHashes(sub);
+		await ListUtil.pSetFromSubHashes(sub);
+	}
+
+	onSublistChange () {
+		this._$totalwWeight = this._$totalWeight || $(`#totalweight`);
+		this._$totalValue = this._$totalValue || $(`#totalvalue`);
+		this._$totalItems = this._$totalItems || $(`#totalitems`);
+
+		let weight = 0;
+		let value = 0;
+		let cntItems = 0;
+
+		const availConversions = new Set();
+		ListUtil.sublist.items.forEach(it => {
+			const item = this._dataList[it.ix];
+			if (item.currencyConversion) availConversions.add(item.currencyConversion);
+			const count = it.values.count;
+			cntItems += it.values.count;
+			if (item.weight) weight += Number(item.weight) * count;
+			if (item.value) value += item.value * count;
+		});
+
+		this._$totalwWeight.text(`${weight.toLocaleString(undefined, {maximumFractionDigits: 5})} lb${weight !== 1 ? "s" : ""}.`);
+		this._$totalItems.text(cntItems);
+
+		if (availConversions.size) {
+			this._$totalValue
+				.text(Parser.itemValueToFullMultiCurrency({value, currencyConversion: this._sublistCurrencyConversion}))
+				.off("click")
+				.click(async () => {
+					const values = ["(Default)", ...[...availConversions].sort(SortUtil.ascSortLower)];
+					const defaultSel = values.indexOf(this._sublistCurrencyConversion);
+					const userSel = await InputUiUtil.pGetUserEnum({
+						values,
+						isResolveItem: true,
+						default: ~defaultSel ? defaultSel : 0,
+						title: "Select Currency Conversion Table",
+						fnDisplay: it => it === null ? values[0] : it,
+					});
+					if (userSel == null) return;
+					this._sublistCurrencyConversion = userSel === values[0] ? null : userSel;
+					await StorageUtil.pSetForPage("sublistCurrencyConversion", this._sublistCurrencyConversion);
+					this.onSublistChange();
+				});
+		} else {
+			const modes = ["Exact Coinage", "Lowest Common Currency", "Gold"];
+			const text = (() => {
+				switch (this._sublistCurrencyDisplayMode) {
+					case modes[1]: return Parser.itemValueToFull({value});
+					case modes[2]: {
+						return value ? `${Parser.DEFAULT_CURRENCY_CONVERSION_TABLE.find(it => it.coin === "gp").mult * value} gp` : "";
+					}
+					default:
+					case modes[0]: {
+						const CURRENCIES = ["gp", "sp", "cp"];
+						const coins = {cp: value};
+						CurrencyUtil.doSimplifyCoins(coins);
+						return CURRENCIES.filter(it => coins[it]).map(it => `${coins[it].toLocaleString(undefined, {maximumFractionDigits: 5})} ${it}`).join(", ");
+					}
+				}
+			})();
+
+			this._$totalValue
+				.text(text || "\u2014")
+				.off("click")
+				.click(async () => {
+					const defaultSel = modes.indexOf(this._sublistCurrencyDisplayMode);
+					const userSel = await InputUiUtil.pGetUserEnum({
+						values: modes,
+						isResolveItem: true,
+						default: ~defaultSel ? defaultSel : 0,
+						title: "Select Display Mode",
+						fnDisplay: it => it === null ? modes[0] : it,
+					});
+					if (userSel == null) return;
+					this._sublistCurrencyDisplayMode = userSel === modes[0] ? null : userSel;
+					await StorageUtil.pSetForPage("sublistCurrencyDisplayMode", this._sublistCurrencyDisplayMode);
+					this.onSublistChange();
+				});
 		}
 	}
-	if (item.additionalEntries) {
-		const additionEntriesList = {type: "entries", entries: item.additionalEntries};
-		renderer.recursiveEntryRender(additionEntriesList, renderStack, 1);
-	}
 
-	$content.find("tr#text").after(`
-		<tr class="text">
-			<td colspan="6" class="text1">
-				${utils_makeRoller(renderStack.join("")).split(item.name.toLowerCase()).join("<i>" + item.name.toLowerCase() + "</i>").split(item.name.toLowerCase().uppercaseFirst()).join("<i>" + item.name.toLowerCase().uppercaseFirst() + "</i>")}
-			</td>
-		</tr>`);
+	async pOnLoad () {
+		window.loadHash = this.doLoadHash.bind(this);
+		window.loadSubHash = this.pDoLoadSubHash.bind(this);
 
-	$content.find(".items span.roller").contents().unwrap();
-	$content.find("span.roller").not(`.render-roller`).click(function () {
-		const roll = $(this).attr("data-roll").replace(/\s+/g, "");
-		EntryRenderer.dice.roll(roll, {
-			name: item.name,
-			label: $content.find(".stats-name").text()
+		[this._sublistCurrencyConversion, this._sublistCurrencyDisplayMode] = await Promise.all([StorageUtil.pGetForPage("sublistCurrencyConversion"), StorageUtil.pGetForPage("sublistCurrencyDisplayMode")]);
+		await ExcludeUtil.pInitialise();
+		await this._pageFilter.pInitFilterBox({
+			$iptSearch: $(`#lst__search`),
+			$wrpFormTop: $(`#filter-search-group`),
+			$btnReset: $(`#reset`),
 		});
-	});
 
-	// fix any double-wrapped rollers
-	// TODO convert entire item roller system to rendered, instead of mass-replaced
-	$content.find(`.render-roller`).find(`.roller`).each(function () {
-		$(this).replaceWith(this.childNodes)
-	});
+		return this._pPopulateTablesAndFilters({item: await Renderer.item.pBuildList({isAddGroups: true, isBlacklistVariants: true})});
+	}
+
+	async _pPopulateTablesAndFilters (data) {
+		this._mundaneList = ListUtil.initList({
+			listClass: "mundane",
+			fnSort: PageFilterItems.sortItems,
+			syntax: this._listSyntax,
+			isBindFindHotkey: true,
+		});
+		this._magicList = ListUtil.initList({
+			listClass: "magic",
+			fnSort: PageFilterItems.sortItems,
+			syntax: this._listSyntax,
+		});
+		this._mundaneList.nextList = this._magicList;
+		this._magicList.prevList = this._mundaneList;
+		ListUtil.setOptions({primaryLists: [this._mundaneList, this._magicList]});
+
+		const $elesMundaneAndMagic = $(`.ele-mundane-and-magic`);
+		$(`.side-label--mundane`).click(() => {
+			const filterValues = itemsPage._pageFilter.filterBox.getValues();
+			const curValue = MiscUtil.get(filterValues, "Miscellaneous", "Mundane");
+			itemsPage._pageFilter.filterBox.setFromValues({Miscellaneous: {Mundane: curValue === 1 ? 0 : 1}});
+			itemsPage.handleFilterChange();
+		});
+		$(`.side-label--magic`).click(() => {
+			const filterValues = itemsPage._pageFilter.filterBox.getValues();
+			const curValue = MiscUtil.get(filterValues, "Miscellaneous", "Magic");
+			itemsPage._pageFilter.filterBox.setFromValues({Miscellaneous: {Magic: curValue === 1 ? 0 : 1}});
+			itemsPage.handleFilterChange();
+		});
+		const $outVisibleResults = $(`.lst__wrp-search-visible`);
+		const $wrpListMundane = $(`.itm__wrp-list--mundane`);
+		const $wrpListMagic = $(`.itm__wrp-list--magic`);
+		this._mundaneList.on("updated", () => {
+			const $elesMundane = $(`.ele-mundane`);
+
+			// Force-show the mundane list if there are no items on display
+			if (this._magicList.visibleItems.length) $elesMundane.toggleVe(!!this._mundaneList.visibleItems.length);
+			else $elesMundane.showVe();
+			$elesMundaneAndMagic.toggleVe(!!(this._mundaneList.visibleItems.length && this._magicList.visibleItems.length));
+
+			const current = this._mundaneList.visibleItems.length + this._magicList.visibleItems.length;
+			const total = this._mundaneList.items.length + this._magicList.items.length;
+			$outVisibleResults.html(`${current}/${total}`);
+
+			// Collapse the mundane section if there are no magic items displayed
+			$wrpListMundane.toggleClass(`itm__wrp-list--empty`, this._mundaneList.visibleItems.length === 0);
+		});
+		this._magicList.on("updated", () => {
+			const $elesMundane = $(`.ele-mundane`);
+			const $elesMagic = $(`.ele-magic`);
+
+			$elesMagic.toggleVe(!!this._magicList.visibleItems.length);
+			// Force-show the mundane list if there are no items on display
+			if (!this._magicList.visibleItems.length) $elesMundane.showVe();
+			else $elesMundane.toggleVe(!!this._mundaneList.visibleItems.length);
+			$elesMundaneAndMagic.toggleVe(!!(this._mundaneList.visibleItems.length && this._magicList.visibleItems.length));
+
+			const current = this._mundaneList.visibleItems.length + this._magicList.visibleItems.length;
+			const total = this._mundaneList.items.length + this._magicList.items.length;
+			$outVisibleResults.html(`${current}/${total}`);
+
+			// Collapse the magic section if there are no magic items displayed
+			$wrpListMagic.toggleClass(`itm__wrp-list--empty`, this._magicList.visibleItems.length === 0);
+		});
+
+		// filtering function
+		itemsPage._pageFilter.filterBox.on(
+			FilterBox.EVNT_VALCHANGE,
+			itemsPage.handleFilterChange.bind(itemsPage),
+		);
+
+		SortUtil.initBtnSortHandlers($("#filtertools-mundane"), this._mundaneList);
+		SortUtil.initBtnSortHandlers($("#filtertools-magic"), this._magicList);
+
+		this._listSub = ListUtil.initSublist({
+			listClass: "subitems",
+			fnSort: PageFilterItems.sortItems,
+			getSublistRow: itemsPage.getSublistItem.bind(itemsPage),
+			onUpdate: itemsPage.onSublistChange.bind(itemsPage),
+		});
+		SortUtil.initBtnSortHandlers($("#sublistsort"), this._listSub);
+		ListUtil.initGenericAddable();
+
+		this._addItems(data);
+		BrewUtil.pAddBrewData()
+			.then(this._pHandleBrew.bind(this))
+			.then(() => BrewUtil.bind({lists: [this._mundaneList, this._magicList], pHandleBrew: this._pHandleBrew.bind(this)}))
+			.then(() => BrewUtil.pAddLocalBrewData())
+			.then(async () => {
+				BrewUtil.makeBrewButton("manage-brew");
+				BrewUtil.bind({lists: [this._mundaneList, this._magicList], filterBox: itemsPage._pageFilter.filterBox, sourceFilter: itemsPage._pageFilter.sourceFilter});
+				await ListUtil.pLoadState();
+				RollerUtil.addListRollButton();
+				ListUtil.addListShowHide();
+
+				ListUtil.bindShowTableButton(
+					"btn-show-table",
+					"Items",
+					this._dataList,
+					{
+						name: {name: "Name", transform: true},
+						source: {name: "Source", transform: (it) => `<span class="${Parser.sourceJsonToColor(it)}" title="${Parser.sourceJsonToFull(it)}" ${BrewUtil.sourceJsonToStyle(it.source)}>${Parser.sourceJsonToAbv(it)}</span>`},
+						rarity: {name: "Rarity", transform: true},
+						_type: {name: "Type", transform: it => it._typeHtml},
+						_attunement: {name: "Attunement", transform: it => it._attunement ? it._attunement.slice(1, it._attunement.length - 1) : ""},
+						_properties: {name: "Properties", transform: it => Renderer.item.getDamageAndPropertiesText(it).filter(Boolean).join(", ")},
+						_weight: {name: "Weight", transform: it => Parser.itemWeightToFull(it)},
+						_value: {name: "Value", transform: it => Parser.itemValueToFullMultiCurrency(it)},
+						_entries: {name: "Text", transform: (it) => Renderer.item.getRenderedEntries(it, true), flex: 3},
+					},
+					{generator: ListUtil.basicFilterGenerator},
+					(a, b) => SortUtil.ascSort(a.name, b.name) || SortUtil.ascSort(a.source, b.source),
+				);
+
+				this._mundaneList.init();
+				this._magicList.init();
+				this._listSub.init();
+
+				Hist.init(true);
+				ExcludeUtil.checkShowAllExcluded(this._dataList, $(`#pagecontent`));
+
+				window.dispatchEvent(new Event("toolsLoaded"));
+			});
+	}
+
+	async _pHandleBrew (homebrew) {
+		const itemList = await Renderer.item.pGetItemsFromHomebrew(homebrew);
+		this._addItems({item: itemList});
+	}
+
+	_addItems (data) {
+		if (!data.item || !data.item.length) return;
+
+		this._dataList.push(...data.item);
+
+		for (; this._ixData < this._dataList.length; this._ixData++) {
+			const item = this._dataList[this._ixData];
+			const listItem = itemsPage.getListItem(item, this._ixData);
+			if (!listItem) continue;
+			if (listItem.mundane) this._mundaneList.addItem(listItem.mundane);
+			if (listItem.magic) this._magicList.addItem(listItem.magic);
+		}
+
+		// populate table labels
+		$(`h3.ele-mundane span.side-label`).text("Mundane");
+		$(`h3.ele-magic span.side-label`).text("Magic");
+
+		this._mundaneList.update();
+		this._magicList.update();
+
+		itemsPage._pageFilter.filterBox.render();
+		itemsPage.handleFilterChange();
+
+		ListUtil.setOptions({
+			itemList: this._dataList,
+			getSublistRow: itemsPage.getSublistItem.bind(itemsPage),
+			primaryLists: [this._mundaneList, this._magicList],
+		});
+		ListUtil.bindAddButton();
+		ListUtil.bindSubtractButton();
+		const $btnPop = ListUtil.getOrTabRightButton(`btn-popout`, `new-window`);
+		Renderer.hover.bindPopoutButton($btnPop, this._dataList);
+		UrlUtil.bindLinkExportButton(itemsPage._pageFilter.filterBox);
+		ListUtil.bindOtherButtons({
+			download: true,
+			upload: true,
+		});
+	}
 }
 
-function loadsub (sub) {
-	filterBox.setFromSubHashes(sub);
-	ListUtil.setFromSubHashes(sub);
-}
-
-const TOOL_INS_ADDITIONAL_ENTRIES = [
-	"Proficiency with a musical instrument indicates you are familiar with the techniques used to play it. You also have knowledge of some songs commonly performed with that instrument.",
-	{
-		"type": "entries",
-		"name": "History",
-		"entries": [
-			"Your expertise aids you in recalling lore related to your instrument."
-		]
-	},
-	{
-		"type": "entries",
-		"name": "Performance",
-		"entries": [
-			"Your ability to put on a good show is improved when you incorporate an instrument into your act."
-		]
-	},
-	{
-		"type": "entries",
-		"name": "Compose a Tune",
-		"entries": [
-			"As part of a long rest, you can compose a new tune and lyrics for your instrument. You might use this ability to impress a noble or spread scandalous rumors with a catchy tune."
-		]
-	},
-	{
-		"type": "table",
-		"caption": "Musical Instrument",
-		"colLabels": [
-			"Activity", "DC"
-		],
-		"colStyles": [
-			"col-xs-10",
-			"col-xs-2 text-align-center"
-		],
-		"rows": [
-			["Identify a tune", "10"],
-			["Improvise a tune", "20"]
-		]
-	}
-];
-
-const TOOL_GS_ADDITIONAL_ENTRIES = [
-	"Proficiency with a gaming set applies to one type of game, such as Three-Dragon Ante or games of chance that use dice.",
-	{
-		"type": "entries",
-		"name": "Components",
-		"entries": [
-			"A gaming set has all the pieces needed to play a specific game or type of game, such as a complete deck of cards or a board and tokens."
-		]
-	},
-	{
-		"type": "entries",
-		"name": "History",
-		"entries": [
-			"Your mastery of a game includes knowledge of its history, as well as of important events it was connected to or prominent historical figures involved with it."
-		]
-	},
-	{
-		"type": "entries",
-		"name": "Insight",
-		"entries": [
-			"Playing games with someone is a good way to gain understanding of their personality, granting you a better ability to discern their lies from their truths and read their mood."
-		]
-	},
-	{
-		"type": "entries",
-		"name": "Sleight of Hand",
-		"entries": [
-			"Sleight of Hand is a useful skill for cheating at a game, as it allows you to swap pieces, palm cards, or alter a die roll. Alternatively, engrossing a target in a game by manipulating the components with dexterous movements is a great distraction for a pickpocketing attempt."
-		]
-	},
-	{
-		"type": "table",
-		"caption": "Gaming Set",
-		"colLabels": [
-			"Activity", "DC"
-		],
-		"colStyles": [
-			"col-xs-10",
-			"col-xs-2 text-align-center"
-		],
-		"rows": [
-			["Catch a player cheating", "15"],
-			["Gain insight into an opponent's personality", "15"]
-		]
-	}
-];
+const itemsPage = new ItemsPage();
+window.addEventListener("load", () => itemsPage.pOnLoad());

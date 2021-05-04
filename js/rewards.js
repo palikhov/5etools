@@ -1,145 +1,101 @@
 "use strict";
 
-const JSON_URL = "data/rewards.json";
+class RewardsPage extends ListPage {
+	constructor () {
+		const pageFilter = new PageFilterRewards();
+		super({
+			dataSource: "data/rewards.json",
 
-window.onload = function load () {
-	ExcludeUtil.initialise();
-	DataUtil.loadJSON(JSON_URL).then(onJsonLoad);
-};
+			pageFilter,
 
-let list;
-const sourceFilter = getSourceFilter();
-const typeFilter = new Filter({
-	header: "Type",
-	items: [
-		"Blessing",
-		"Boon",
-		"Charm"
-	]
-});
-let filterBox;
-function onJsonLoad (data) {
-	filterBox = initFilterBox(sourceFilter, typeFilter);
+			listClass: "rewards",
 
-	list = ListUtil.search({
-		valueNames: ["name", "source"],
-		listClass: "rewards"
-	});
-	list.on("updated", () => {
-		filterBox.setCount(list.visibleItems.length, list.items.length);
-	});
+			sublistClass: "subrewards",
 
-	// filtering function
-	$(filterBox).on(
-		FilterBox.EVNT_VALCHANGE,
-		handleFilterChange
-	);
-
-	const subList = ListUtil.initSublist({
-		valueNames: ["name", "id"],
-		listClass: "subrewards",
-		getSublistRow: getSublistItem
-	});
-
-	addRewards(data);
-	BrewUtil.addBrewData(addRewards);
-	BrewUtil.makeBrewButton("manage-brew");
-	BrewUtil.bind({list, filterBox, sourceFilter});
-	ListUtil.loadState();
-
-	History.init();
-	handleFilterChange();
-	RollerUtil.addListRollButton();
-}
-
-let rewardList = [];
-let rwI = 0;
-function addRewards (data) {
-	if (!data.reward || !data.reward.length) return;
-
-	rewardList = rewardList.concat(data.reward);
-
-	let tempString = "";
-	for (; rwI < rewardList.length; rwI++) {
-		const reward = rewardList[rwI];
-		if (ExcludeUtil.isExcluded(reward.name, "reward", reward.source)) continue;
-
-		tempString += `
-			<li class='row' ${FLTR_ID}='${rwI}' onclick="ListUtil.toggleSelected(event, this)" oncontextmenu="ListUtil.openContextMenu(event, this)">
-				<a id='${rwI}' href='#${UrlUtil.autoEncodeHash(reward)}' title='${reward.name}'>
-					<span class='name col-xs-10'>${reward.name}</span>
-					<span class='source col-xs-2 source${Parser.sourceJsonToAbv(reward.source)}' title='${Parser.sourceJsonToFull(reward.source)}'>${Parser.sourceJsonToAbv(reward.source)}</span>
-				</a>
-			</li>`;
-
-		// populate filters
-		sourceFilter.addIfAbsent(reward.source);
-		typeFilter.addIfAbsent(reward.type);
+			dataProps: ["reward"],
+		});
 	}
-	const lastSearch = ListUtil.getSearchTermAndReset(list);
-	$("ul.rewards").append(tempString);
 
-	// sort filters
-	sourceFilter.items.sort(SortUtil.ascSort);
-	typeFilter.items.sort(SortUtil.ascSort);
+	getListItem (reward, rwI, isExcluded) {
+		this._pageFilter.mutateAndAddToFilters(reward, isExcluded);
 
-	list.reIndex();
-	if (lastSearch) list.search(lastSearch);
-	list.sort("name");
-	filterBox.render();
-	handleFilterChange();
+		const eleLi = document.createElement("div");
+		eleLi.className = `lst__row flex-col ${isExcluded ? "lst__row--blacklisted" : ""}`;
 
-	ListUtil.setOptions({
-		itemList: rewardList,
-		getSublistRow: getSublistItem,
-		primaryLists: [list]
-	});
-	ListUtil.bindPinButton();
-	EntryRenderer.hover.bindPopoutButton(rewardList);
-	UrlUtil.bindLinkExportButton(filterBox);
-	ListUtil.bindDownloadButton();
-	ListUtil.bindUploadButton();
-}
+		const source = Parser.sourceJsonToAbv(reward.source);
+		const hash = UrlUtil.autoEncodeHash(reward);
 
-function handleFilterChange () {
-	const f = filterBox.getValues();
-	list.filter(function (item) {
-		const r = rewardList[$(item.elm).attr(FLTR_ID)];
-		return filterBox.toDisplay(
-			f,
-			r.source,
-			r.type
+		eleLi.innerHTML = `<a href="#${hash}" class="lst--border lst__row-inner">
+			<span class="col-2 text-center pl-0">${reward.type}</span>
+			<span class="bold col-8">${reward.name}</span>
+			<span class="col-2 text-center ${Parser.sourceJsonToColor(reward.source)} pr-0" title="${Parser.sourceJsonToFull(reward.source)}" ${BrewUtil.sourceJsonToStyle(reward.source)}>${source}</span>
+		</a>`;
+
+		const listItem = new ListItem(
+			rwI,
+			eleLi,
+			reward.name,
+			{
+				hash,
+				source,
+				type: reward.type,
+			},
+			{
+				uniqueId: reward.uniqueId ? reward.uniqueId : rwI,
+				isExcluded,
+			},
 		);
-	});
-	FilterBox.nextIfHidden(rewardList);
-}
 
-function getSublistItem (reward, pinId) {
-	return `
-		<li class="row" ${FLTR_ID}="${pinId}" oncontextmenu="ListUtil.openSubContextMenu(event, this)">
-			<a href="#${UrlUtil.autoEncodeHash(reward)}" title="${reward.name}">
-				<span class="name col-xs-12">${reward.name}</span>		
-				<span class="id hidden">${pinId}</span>				
+		eleLi.addEventListener("click", (evt) => this._list.doSelect(listItem, evt));
+		eleLi.addEventListener("contextmenu", (evt) => ListUtil.openContextMenu(evt, this._list, listItem));
+
+		return listItem;
+	}
+
+	handleFilterChange () {
+		const f = this._filterBox.getValues();
+		this._list.filter(item => this._pageFilter.toDisplay(f, this._dataList[item.ix]));
+		FilterBox.selectFirstVisible(this._dataList);
+	}
+
+	getSublistItem (reward, pinId) {
+		const hash = UrlUtil.autoEncodeHash(reward);
+
+		const $ele = $(`<div class="lst__row lst__row--sublist flex-col">
+			<a href="#${hash}" class="lst--border lst__row-inner">
+				<span class="name col-2 pl-0 text-center">${reward.type}</span>
+				<span class="name col-10 pr-0">${reward.name}</span>
 			</a>
-		</li>
-	`;
+		</div>`)
+			.contextmenu(evt => ListUtil.openSubContextMenu(evt, listItem))
+			.click(evt => ListUtil.sublist.doSelect(listItem, evt));
+
+		const listItem = new ListItem(
+			pinId,
+			$ele,
+			reward.name,
+			{
+				hash,
+				type: reward.type,
+			},
+		);
+		return listItem;
+	}
+
+	doLoadHash (id) {
+		Renderer.get().setFirstSection(true);
+		const reward = this._dataList[id];
+
+		$("#pagecontent").empty().append(RenderRewards.$getRenderedReward(reward));
+
+		ListUtil.updateSelected();
+	}
+
+	async pDoLoadSubHash (sub) {
+		sub = this._filterBox.setFromSubHashes(sub);
+		await ListUtil.pSetFromSubHashes(sub);
+	}
 }
 
-function loadhash (id) {
-	EntryRenderer.getDefaultRenderer().setFirstSection(true);
-	const $content = $("#pagecontent").empty();
-	const reward = rewardList[id];
-
-	$content.append(`
-		${EntryRenderer.utils.getBorderTr()}
-		${EntryRenderer.utils.getNameTr(reward)}
-		<tr id="text"><td class="divider" colspan="6"><div></div></td></tr>
-		${EntryRenderer.reward.getRenderedString(reward)}
-		${EntryRenderer.utils.getBorderTr()}
-	`);
-}
-
-function loadsub (sub) {
-	filterBox.setFromSubHashes(sub);
-	ListUtil.setFromSubHashes(sub);
-}
+const rewardsPage = new RewardsPage();
+window.addEventListener("load", () => rewardsPage.pOnLoad());

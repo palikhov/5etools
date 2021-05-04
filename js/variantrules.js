@@ -1,110 +1,109 @@
 "use strict";
-const JSON_URL = "data/variantrules.json";
 
-window.onload = function load () {
-	ExcludeUtil.initialise();
-	DataUtil.loadJSON(JSON_URL).then(onJsonLoad);
-};
+class VariantRulesPage extends ListPage {
+	constructor () {
+		const pageFilter = new PageFilterVariantRules();
+		super({
+			dataSource: DataUtil.variantrule.loadJSON,
 
-let tableDefault;
+			pageFilter,
 
-const entryRenderer = EntryRenderer.getDefaultRenderer();
+			listClass: "variantrules",
 
-let list;
-const sourceFilter = getSourceFilter();
-let filterBox;
+			sublistClass: "subvariantrules",
 
-function onJsonLoad (data) {
-	list = ListUtil.search({
-		valueNames: ['name', 'source', 'search'],
-		listClass: "variantRules"
-	});
+			dataProps: ["variantrule"],
+		});
+	}
 
-	tableDefault = $("#pagecontent").html();
-
-	filterBox = initFilterBox(sourceFilter);
-
-	list.on("updated", () => {
-		filterBox.setCount(list.visibleItems.length, list.items.length);
-	});
-	// filtering function
-	$(filterBox).on(
-		FilterBox.EVNT_VALCHANGE,
-		handleFilterChange
-	);
-
-	addListShowHide();
-
-	addVariantRules(data);
-	BrewUtil.addBrewData(addVariantRules);
-	BrewUtil.makeBrewButton("manage-brew");
-	BrewUtil.bind({list, filterBox, sourceFilter});
-
-	History.init();
-}
-
-let rulesList = [];
-let rlI = 0;
-function addVariantRules (data) {
-	if (!data.variantrule || !data.variantrule.length) return;
-
-	rulesList = rulesList.concat(data.variantrule);
-
-	let tempString = "";
-	for (; rlI < rulesList.length; rlI++) {
-		const curRule = rulesList[rlI];
-		if (ExcludeUtil.isExcluded(curRule.name, "variantrule", curRule.source)) continue;
+	getListItem (rule, rlI, isExcluded) {
+		this._pageFilter.mutateAndAddToFilters(rule, isExcluded);
 
 		const searchStack = [];
-		for (const e1 of curRule.entries) {
-			EntryRenderer.getNames(searchStack, e1);
+		for (const e1 of rule.entries) {
+			Renderer.getNames(searchStack, e1);
 		}
 
-		// populate table
-		tempString += `
-			<li ${FLTR_ID}="${rlI}">
-				<a id="${rlI}" href="#${UrlUtil.autoEncodeHash(curRule)}" title="${curRule.name}">
-					<span class="name col-xs-10">${curRule.name}</span>
-					<span class="source col-xs-2 source${Parser.sourceJsonToAbv(curRule.source)}" title="${Parser.sourceJsonToFull(curRule.source)}">${Parser.sourceJsonToAbv(curRule.source)}</span>
-					<span class="search hidden">${searchStack.join(",")}</span>
-				</a>
-			</li>`;
+		const eleLi = document.createElement("div");
+		eleLi.className = `lst__row flex-col ${isExcluded ? "lst__row--blacklisted" : ""}`;
 
-		// populate filters
-		sourceFilter.addIfAbsent(curRule.source);
+		const source = Parser.sourceJsonToAbv(rule.source);
+		const hash = UrlUtil.autoEncodeHash(rule);
+
+		eleLi.innerHTML = `<a href="#${hash}" class="lst--border lst__row-inner">
+			<span class="bold col-7 pl-0">${rule.name}</span>
+			<span class="col-3 text-center">${rule.ruleType ? Parser.ruleTypeToFull(rule.ruleType) : "\u2014"}</span>
+			<span class="col-2 text-center ${Parser.sourceJsonToColor(rule.source)} pr-0" title="${Parser.sourceJsonToFull(rule.source)}" ${BrewUtil.sourceJsonToStyle(rule.source)}>${source}</span>
+		</a>`;
+
+		const listItem = new ListItem(
+			rlI,
+			eleLi,
+			rule.name,
+			{
+				hash,
+				search: searchStack.join(","),
+				source,
+				ruleType: rule.ruleType || "",
+			},
+			{
+				uniqueId: rule.uniqueId ? rule.uniqueId : rlI,
+				isExcluded,
+			},
+		);
+
+		eleLi.addEventListener("click", (evt) => this._list.doSelect(listItem, evt));
+		eleLi.addEventListener("contextmenu", (evt) => ListUtil.openContextMenu(evt, this._list, listItem));
+
+		return listItem;
 	}
-	const lastSearch = ListUtil.getSearchTermAndReset(list);
-	$("ul.variantRules").append(tempString);
-	// sort filters
-	sourceFilter.items.sort(SortUtil.ascSort);
 
-	list.reIndex();
-	if (lastSearch) list.search(lastSearch);
-	list.sort("name");
-	filterBox.render();
-	handleFilterChange();
+	handleFilterChange () {
+		const f = this._filterBox.getValues();
+		this._list.filter(item => this._pageFilter.toDisplay(f, this._dataList[item.ix]));
+		FilterBox.selectFirstVisible(this._dataList);
+	}
+
+	getSublistItem (it, pinId) {
+		const hash = UrlUtil.autoEncodeHash(it);
+
+		const $ele = $(`<div class="lst__row lst__row--sublist flex-col"><a href="#${hash}" class="lst--border lst__row-inner">
+				<span class="bold col-10 pl-0">${it.name}</span>
+				<span class="col-3 text-center pr-0">${it.ruleType ? Parser.ruleTypeToFull(it.ruleType) : "\u2014"}</span>
+			</a></div>`)
+			.contextmenu(evt => ListUtil.openSubContextMenu(evt, listItem))
+			.click(evt => ListUtil.sublist.doSelect(listItem, evt));
+
+		const listItem = new ListItem(
+			pinId,
+			$ele,
+			it.name,
+			{
+				hash,
+				ruleType: it.ruleType || "",
+			},
+		);
+		return listItem;
+	}
+
+	doLoadHash (id) {
+		const rule = this._dataList[id];
+
+		$("#pagecontent").empty().append(RenderVariantRules.$getRenderedVariantRule(rule));
+
+		ListUtil.updateSelected();
+	}
+
+	async pDoLoadSubHash (sub) {
+		if (!sub.length) return;
+
+		sub = this._filterBox.setFromSubHashes(sub);
+		await ListUtil.pSetFromSubHashes(sub);
+
+		const $title = $(`.rd__h[data-title-index="${sub[0]}"]`);
+		if ($title.length) $title[0].scrollIntoView();
+	}
 }
 
-function handleFilterChange () {
-	const f = filterBox.getValues();
-	list.filter(function (item) {
-		const r = rulesList[$(item.elm).attr(FLTR_ID)];
-		return filterBox.toDisplay(f, r.source);
-	});
-	FilterBox.nextIfHidden(rulesList);
-}
-
-function loadhash (id) {
-	entryRenderer.setFirstSection(true);
-
-	// reset details pane to initial HTML
-	$("#pagecontent").html(tableDefault);
-
-	const curRule = rulesList[id];
-
-	// build text list and display
-	$("tr.text").remove();
-	const textStack = [];
-	entryRenderer.recursiveEntryRender(curRule, textStack);
-	$("tr#text").after("<tr class='text'><td colspan='6'>" + textStack.join("") + "</td></tr>");
-}
+const variantRulesPage = new VariantRulesPage();
+window.addEventListener("load", () => variantRulesPage.pOnLoad());

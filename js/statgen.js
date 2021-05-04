@@ -1,141 +1,174 @@
 "use strict";
-const RACE_JSON_URL = "data/races.json";
 
-let amount, count;
+class StatGenPage {
+	constructor () {
+		this._statGenUi = null;
+		this._isIgnoreHashChanges = false;
+	}
 
-let raceData;
+	async pInit () {
+		await ExcludeUtil.pInitialise();
+		const [races, feats] = await Promise.all([
+			await this._pLoadRaces(),
+			await this._pLoadFeats(),
+		]);
 
-function loadRaceJson () {
-	DataUtil.loadJSON(RACE_JSON_URL).then(onJsonLoad)
-}
-
-window.onload = function load () {
-	loadRaceJson();
-	prevent();
-};
-
-function onJsonLoad (data) {
-	raceData = EntryRenderer.race.mergeSubraces(data.race);
-
-	$("#rollbutton").click(rollstats);
-
-	const isCrypto = EntryRenderer.dice.isCrypto();
-	const titleStr = isCrypto ? "Numbers will be generated using Crypto.getRandomValues()" : "Numbers will be generated using Math.random()";
-	$(`#roller-mode`).html(`Cryptographically strong random generation: <span title="${titleStr}" class="crypto-${isCrypto}">${isCrypto ? `<span class="glyphicon glyphicon-lock"></span> enabled` : `<span class="glyphicon glyphicon-ban-circle"></span> not available`}</span>`);
-
-	$(function () {
-		$("#reset").click(function () {
-			$(".base").val(8);
-			$(".choose").prop("checked", false);
-			changeTotal();
-			changeBase()
+		this._statGenUi = new StatGenUi({
+			races,
+			feats,
+			tabMetasAdditional: this._getAdditionalTabMetas(),
 		});
-	});
+		await this._statGenUi.pInit();
+		this._statGenUi.addHook("meta", "ixActiveTab", () => this._setHashFromTab())
+		const savedStateDebounced = MiscUtil.throttle(this._pDoSaveState.bind(this), 100);
+		this._statGenUi.addHookAll("state", () => savedStateDebounced());
 
-	$(".base").on("input", changeBase);
-	$("input.choose").on("change", choose);
+		window.addEventListener("hashchange", () => this._handleHashChange());
+		const setStateFromHash = this._handleHashChange();
 
-	const names = raceData.map(x => x.name).sort();
-	const options = names.map(name => `<option>${name}</option>`).join();
-	$("#race").append(`<option>None</option>`).append(options).change(changeRace).change();
+		if (!setStateFromHash) {
+			const savedState = await StorageUtil.pGetForPage(StatGenPage._STORAGE_KEY_STATE);
+			if (savedState != null) this._statGenUi.setStateFrom(savedState);
+		}
 
-	if (window.location.hash) window.onhashchange();
-	else window.location.hash = "#rolled";
-}
+		this._statGenUi.render($(`#statgen-main`));
 
-const STATS_MIN = 8;
-const STATS_MAX = 15;
-
-function prevent () {
-	$(`.base`).each((i, ele) => {
-		const input = $(ele);
-		input.on("change", function (e) {
-			let num = parseInt(this.value);
-			if (isNaN(num)) {
-				this.value = 8;
-			} else {
-				this.value = Math.max(Math.min(num, STATS_MAX), STATS_MIN);
-			}
-			changeTotal();
-		})
-	});
-}
-
-window.onhashchange = function hashchange () {
-	let hash = window.location.hash.slice(1);
-	$(".statmethod").hide();
-	if (hash === "") hash = "rolled";
-	$("#" + hash).show();
-};
-
-function getCost (n) {
-	if (n < 14) return n - 8;
-	if (n === 14) return 7;
-	return 9
-}
-
-function choose () {
-	if ($("input.choose:checked").length > count) return this.checked = false;
-
-	$(".racial", this.parentNode.parentNode)
-		.val(this.checked ? amount : 0);
-	changeTotal()
-}
-
-function changeRace () {
-	const race = this.value;
-	const stats = race === "None"
-		? {}
-		: raceData.find(({name}) => name === race).ability;
-
-	$(".racial").val(0);
-	for (const key in stats) $(`#${key} .racial`).val(stats[key])
-
-	changeTotal();
-	$(".choose").hide().prop("checked", false);
-
-	if (!stats.choose) return;
-
-	const {from} = stats.choose[0];
-	amount = stats.choose[0].amount || 1;
-	count = stats.choose[0].count;
-
-	$("td.choose").text(`Choose ${count}`).show();
-	from.forEach(key => $(`#${key} .choose`).show())
-}
-
-function changeTotal () {
-	$("#pointbuy tr[id]").each((i, el) => {
-		const [base, racial, total, mod] = $("input", el).get();
-		const raw = total.value = Number(base.value) + Number(racial.value);
-		mod.value = Math.floor((raw - 10) / 2)
-	})
-}
-
-function changeBase (e) {
-	const budget = Number($("#budget").val());
-	let cost = 0;
-	$(".base").each((i, el) => cost += getCost(Number(el.value)));
-	if (cost > budget) return this.value = this.dataset.prev;
-	this.dataset.prev = this.value;
-	$("#remaining").val(budget - cost);
-
-	changeTotal()
-}
-
-function rollstats () {
-	const formula = $(`#stats-formula`).val();
-
-	const rolls = [];
-	for (let i = 0; i < 6; i++) {
-		rolls.push(EntryRenderer.dice.parseRandomise(formula));
+		window.dispatchEvent(new Event("toolsLoaded"));
 	}
 
-	const $rolled = $("#rolled");
-	if (~rolls.findIndex(it => !it)) {
-		$rolled.find("#rolls").prepend(`<p>Invalid dice formula!</p>`)
-	} else {
-		$rolled.find("#rolls").prepend(`<p class="stat-roll-line">${rolls.map(r => `<span class="stat-roll-item" title="${EntryRenderer.dice.getDiceSummary(r, true)}">${r.total}</span>`).join("")}</p>`);
+	_getAdditionalTabMetas () {
+		return [
+			{
+				type: "buttons",
+				buttons: [
+					{
+						html: `<span class="glyphicon glyphicon-download"></span>`,
+						title: "Save to File",
+						pFnClick: () => {
+							DataUtil.userDownload("statgen", this._statGenUi.getSaveableState());
+						},
+					},
+				],
+			},
+			{
+				type: "buttons",
+				buttons: [
+					{
+						html: `<span class="glyphicon glyphicon-upload"></span>`,
+						title: "Load from File",
+						pFnClick: async () => {
+							const json = await DataUtil.pUserUpload();
+							this._statGenUi.setStateFrom(json);
+						},
+					},
+				],
+			},
+			{
+				type: "buttons",
+				buttons: [
+					{
+						html: `<span class="glyphicon glyphicon-magnet"></span>`,
+						title: "Copy Link",
+						pFnClick: async (evt, $btn) => {
+							const encoded = `${window.location.href.split("#")[0]}#pointbuy${HASH_PART_SEP}${encodeURIComponent(JSON.stringify(this._statGenUi.getSaveableState()))}`;
+							await MiscUtil.pCopyTextToClipboard(encoded);
+							JqueryUtil.showCopiedEffect($btn);
+						},
+					},
+				],
+			},
+		];
 	}
-	$rolled.find("#rolls p:eq(10)").remove();
+
+	async _pDoSaveState () {
+		const statGenState = this._statGenUi.getSaveableState();
+		await StorageUtil.pSetForPage(StatGenPage._STORAGE_KEY_STATE, statGenState);
+	}
+
+	async _pLoadRaces () {
+		const fromData = await DataUtil.race.loadJSON();
+		const fromBrew = await DataUtil.race.loadBrew();
+
+		let races = [...fromData.race, ...fromBrew.race];
+
+		races = races.filter(it => {
+			const hash = UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_RACES](it);
+			return !ExcludeUtil.isExcluded(hash, "race", it.source);
+		});
+
+		return races;
+	}
+
+	async _pLoadFeats () {
+		const data = await DataUtil.loadJSON("data/feats.json");
+
+		const brew = await BrewUtil.pAddBrewData();
+
+		let feats = data.feat;
+		if (brew.feat) feats = [...feats, ...brew.feat];
+
+		feats = feats.filter(it => {
+			const hash = UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_FEATS](it);
+			return !ExcludeUtil.isExcluded(hash, "feat", it.source);
+		});
+
+		return feats;
+	}
+
+	_setTabFromHash (tabName) {
+		this._isIgnoreHashChanges = true;
+		const ixTab = StatGenUi.MODES.indexOf(tabName);
+		this._statGenUi.ixActiveTab = ~ixTab ? ixTab : 0;
+		this._isIgnoreHashChanges = false;
+	}
+
+	_setHashFromTab () {
+		this._isIgnoreHashChanges = true;
+		window.location.hash = StatGenUi.MODES[this._statGenUi.ixActiveTab];
+		this._isIgnoreHashChanges = false;
+	}
+
+	_handleHashChange () {
+		if (this._isIgnoreHashChanges) return false;
+
+		const hash = (window.location.hash.slice(1) || "").trim().toLowerCase();
+		const [mode, state] = (hash.split(HASH_PART_SEP) || [""]);
+
+		if (!StatGenUi.MODES.includes(mode)) {
+			this._doSilentHashChange(StatGenUi.MODES[0]);
+			window.history.replaceState(
+				{},
+				document.title,
+				`${location.origin}${location.pathname}#${StatGenUi.MODES[0]}`,
+			);
+			return this._handleHashChange();
+		}
+
+		this._setTabFromHash(mode);
+		if (!state || !state.trim()) return false;
+
+		this._doSilentHashChange(mode);
+
+		try {
+			const saved = JSON.parse(decodeURIComponent(state));
+			this._statGenUi.setStateFrom(saved);
+			return true;
+		} catch (e) {
+			JqueryUtil.doToast({type: "danger", content: `Failed to load state from URL!`});
+			setTimeout(() => { throw e; });
+			return false;
+		}
+	}
+
+	_doSilentHashChange (mode) {
+		window.history.replaceState(
+			{},
+			document.title,
+			`${location.origin}${location.pathname}#${mode}`,
+		);
+	}
 }
+StatGenPage._STORAGE_KEY_STATE = "state";
+
+const statGenPage = new StatGenPage();
+window.addEventListener("load", () => statGenPage.pInit());
