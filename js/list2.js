@@ -13,6 +13,13 @@ class ListItem {
 		this.values = values || {};
 		this.data = data || {};
 
+		this.searchText = null;
+		this.mutRegenSearchText();
+
+		this._isSelected = false;
+	}
+
+	mutRegenSearchText () {
 		let searchText = `${this.name} - `;
 		for (const k in this.values) {
 			const v = this.values[k]; // unsafe for performance
@@ -20,8 +27,6 @@ class ListItem {
 			searchText += `${v} - `;
 		}
 		this.searchText = searchText.toAscii().toLowerCase();
-
-		this._isSelected = false;
 	}
 
 	set isSelected (val) {
@@ -53,6 +58,7 @@ class List {
 	 * @param [opts.sortDirInitial] Initial sortDir.
 	 * @param [opts.syntax] A dictionary of search syntax prefixes, each with an item "to display" checker function.
 	 * @param [opts.isFuzzy]
+	 * @param [opts.isSkipSearchKeybindingEnter]
 	 */
 	constructor (opts) {
 		if (opts.fnSearch && opts.isFuzzy) throw new Error(`The options "fnSearch" and "isFuzzy" are mutually incompatible!`);
@@ -63,6 +69,7 @@ class List {
 		this._fnSearch = opts.fnSearch;
 		this._syntax = opts.syntax;
 		this._isFuzzy = !!opts.isFuzzy;
+		this._isSkipSearchKeybindingEnter = !!opts.isSkipSearchKeybindingEnter;
 
 		this._items = [];
 		this._eventHandlers = {};
@@ -97,6 +104,11 @@ class List {
 	get sortDir () { return this._sortDir; }
 	set nextList (list) { this._nextList = list; }
 	set prevList (list) { this._prevList = list; }
+
+	setFnSearch (fn) {
+		this._fnSearch = fn;
+		this._isDirty = true;
+	}
 
 	init () {
 		if (this._isInit) return;
@@ -137,7 +149,10 @@ class List {
 	}
 
 	_handleKeydown_enter (evt) {
+		if (this._isSkipSearchKeybindingEnter) return;
+
 		if (IS_VTT) return;
+		if (!EventUtil.noModifierKeys(evt)) return;
 
 		const firstVisibleItem = this.visibleItems[0];
 		if (!firstVisibleItem) return;
@@ -157,8 +172,8 @@ class List {
 		SearchUtil.removeStemmer(this._fuzzySearch);
 	}
 
-	update () {
-		if (!this._isInit || !this._isDirty) return;
+	update ({isForce = false} = {}) {
+		if (!this._isInit || !this._isDirty || isForce) return;
 		this._doSearch();
 	}
 
@@ -172,7 +187,7 @@ class List {
 	}
 
 	_doSearch_doSearchTerm () {
-		if (!this._searchTerm) return this._searchedItems = [...this._items];
+		if (!this._searchTerm && !this._fnSearch) return this._searchedItems = [...this._items];
 
 		if (this._syntax) {
 			const [command, term] = this._searchTerm.split(/^([a-z]+):/).filter(Boolean);
@@ -187,8 +202,10 @@ class List {
 
 		if (this._fnSearch) return this._searchedItems = this._items.filter(it => this._fnSearch(it, this._searchTerm));
 
-		this._searchedItems = this._items.filter(it => it.searchText.includes(this._searchTerm));
+		this._searchedItems = this._items.filter(it => this.constructor.isVisibleDefaultSearch(it, this._searchTerm));
 	}
+
+	static isVisibleDefaultSearch (li, searchTerm) { return li.searchText.includes(searchTerm); }
 
 	_doSearch_doSearchTerm_fuzzy () {
 		const results = this._fuzzySearch
@@ -198,6 +215,7 @@ class List {
 					fields: {
 						s: {expand: true},
 					},
+					bool: "AND",
 					expand: true,
 				},
 			);
@@ -212,20 +230,14 @@ class List {
 	}
 
 	_doSort () {
-		const isFuzzySearchActive = this._isFuzzy && this._searchTerm;
-
-		// Temporarily disable sorting, since we want to keep the fuzzy result order (most relevant item first) rather
-		//   than our more general sort.
-		if (!isFuzzySearchActive) {
-			const opts = {
-				sortBy: this._sortBy,
-				// The sort function should generally ignore this, as we do the reversing here. We expose it in case there
-				//   is specific functionality that requires it.
-				sortDir: this._sortDir,
-			};
-			if (this._fnSort) this._filteredSortedItems.sort((a, b) => this._fnSort(a, b, opts));
-			if (this._sortDir === "desc") this._filteredSortedItems.reverse();
-		}
+		const opts = {
+			sortBy: this._sortBy,
+			// The sort function should generally ignore this, as we do the reversing here. We expose it in case there
+			//   is specific functionality that requires it.
+			sortDir: this._sortDir,
+		};
+		if (this._fnSort) this._filteredSortedItems.sort((a, b) => this._fnSort(a, b, opts));
+		if (this._sortDir === "desc") this._filteredSortedItems.reverse();
 
 		this._doRender();
 	}
@@ -287,7 +299,12 @@ class List {
 		if (this._isFuzzy) this._fuzzySearch.addDoc({ix: listItem.ix, s: listItem.searchText});
 	}
 
-	removeItem (ix, ixItem) {
+	removeItem (listItem) {
+		const ixItem = this._items.indexOf(listItem);
+		return this.removeItemByIndex(listItem.ix, ixItem);
+	}
+
+	removeItemByIndex (ix, ixItem) {
 		ixItem = ixItem ?? this._items.findIndex(it => it.ix === ix);
 		if (!~ixItem) return;
 
@@ -301,12 +318,12 @@ class List {
 
 	removeItemBy (valueName, value) {
 		const ixItem = this._items.findIndex(it => it.values[valueName] === value);
-		return this.removeItem(ixItem, ixItem);
+		return this.removeItemByIndex(ixItem, ixItem);
 	}
 
 	removeItemByData (dataName, value) {
 		const ixItem = this._items.findIndex(it => it.data[dataName] === value);
-		return this.removeItem(ixItem, ixItem);
+		return this.removeItemByIndex(ixItem, ixItem);
 	}
 
 	removeAllItems () {
@@ -327,8 +344,8 @@ class List {
 	 * @param dataArr Array from which the list was rendered.
 	 * @param opts Options object.
 	 * @param opts.fnGetName Function which gets the name from a dataSource item.
-	 * @param opts.fnGetValues Function which gets list values from a dataSource item.
-	 * @param opts.fnGetData Function which gets list data from a listItem and dataSource item.
+	 * @param [opts.fnGetValues] Function which gets list values from a dataSource item.
+	 * @param [opts.fnGetData] Function which gets list data from a listItem and dataSource item.
 	 * @param [opts.fnBindListeners] Function which binds event listeners to the list.
 	 */
 	doAbsorbItems (dataArr, opts) {
